@@ -1,0 +1,12 @@
+{
+  "observed_at": "2026-03-14T05:42:11Z",
+  "crs": "EPSG:4326",
+  "polygon": [[[72.61, 18.42], [72.63, 18.42], [72.63, 18.44], [72.61, 18.44], [72.61, 18.42]]],
+  "area_km2": 12.4,
+  "major_axis_km": 8.1,
+  "minor_axis_km": 1.9,
+  "orientation_deg": 70.2,
+  "centroid": [72.62, 18.43],
+  "confidence": 0.87,
+  "detector": "threshold"
+}

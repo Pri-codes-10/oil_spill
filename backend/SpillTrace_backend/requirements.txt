@@ -1,0 +1,12 @@
+affine
+fastapi
+numpy
+pandas
+pydantic
+pyproj
+pytest
+rasterio
+scikit-image
+scipy
+shapely
+uvicorn

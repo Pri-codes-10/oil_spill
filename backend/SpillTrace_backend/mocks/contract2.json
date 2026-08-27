@@ -1,0 +1,9 @@
+{
+  "observed_at": "2026-03-14T05:42:11Z",
+  "corridor": [
+    {"hours_ago": 6, "lat": 18.42, "lon": 72.61, "radius_km": 4.2},
+    {"hours_ago": 12, "lat": 18.55, "lon": 72.48, "radius_km": 8.1},
+    {"hours_ago": 24, "lat": 18.79, "lon": 72.19, "radius_km": 17.6}
+  ],
+  "field_source": "analytic"
+}

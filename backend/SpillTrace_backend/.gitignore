@@ -1,0 +1,31 @@
+# Satellite / geospatial data
+*.tif
+*.tiff
+*.npy
+*.7z
+*.nc
+*.zip
+*.SAFE/
+data/
+
+# ML artifacts
+*.pt
+*.pth
+
+# Demo cache output
+cache/*
+!cache/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Secrets
+.env
+
+# Local tooling
+.vscode/
+.idea/
