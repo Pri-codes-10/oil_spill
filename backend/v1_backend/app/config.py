@@ -28,6 +28,9 @@ AIS_KNOT_TO_MPS = 0.514444
 AIS_TIME_PAD_HOURS = 3
 CORRIDOR_SLACK_KM = 6.0
 TOP_SUSPECTS = 5
+# app/config.py
+
+MIN_SLICK_PIXELS = 400
 
 # These are engineering judgments, not measured optimum weights.
 ATTRIBUTION_WEIGHTS = {

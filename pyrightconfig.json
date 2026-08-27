@@ -1,0 +1,13 @@
+{
+  "venvPath": "backend/v1_backend",
+  "venv": "venv",
+  "executionEnvironments": [
+    {
+      "root": "backend/v1_backend",
+      "extraPaths": [
+        "backend/v1_backend",
+        "backend/v1_backend/venv/Lib/site-packages"
+      ]
+    }
+  ]
+}
