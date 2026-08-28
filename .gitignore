@@ -1,0 +1,64 @@
+# ============================================================
+# Repo-root .gitignore — SpillTrace / PS 143
+# This file lives at the REPO ROOT on purpose. A .gitignore only
+# governs its own directory and below, which is exactly how a
+# virtualenv escaped into history once already: the rule sat at
+# backend/v2_backend/backend/.gitignore while the venv sat one
+# level above it. Keep venv rules HERE.
+# ============================================================
+
+# --- Virtualenvs: never commit. Rebuild from requirements.txt. ---
+venv/
+.venv/
+env/
+ENV/
+pyvenv.cfg
+
+# --- Python bytecode / tooling caches ---
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# --- Satellite / geospatial data: a single SAFE product is GBs ---
+*.tif
+*.tiff
+*.npy
+*.nc
+*.zip
+*.7z
+*.tar
+*.tar.gz
+*.SAFE/
+data/
+
+# --- ML artifacts ---
+*.pt
+*.pth
+*.onnx
+*.h5
+*.ckpt
+
+# --- Demo cache output (regenerable: scripts/build_cache.py) ---
+cache/*
+!cache/.gitkeep
+
+# --- Secrets: .env.example IS committed, .env is not ---
+.env
+.env.local
+*.pem
+*.key
+
+# --- Editors / OS ---
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
