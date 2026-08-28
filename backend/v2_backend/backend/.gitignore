@@ -1,0 +1,26 @@
+# .gitignore — data
+# OWNER: everyone. Commit this BEFORE the first commit, not after.
+# See WORKFLOW.md §4.6 — one accidental large-file commit poisons repo history.
+
+*.tif
+*.tiff
+*.npy
+*.7z
+*.nc
+*.zip
+*.SAFE/
+cache/
+data/
+*.pt
+*.pth
+__pycache__/
+.env
+
+# standard python noise
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+.ipynb_checkpoints/
+.DS_Store
