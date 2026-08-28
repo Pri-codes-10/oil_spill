@@ -9,7 +9,11 @@
 *.nc
 *.zip
 *.SAFE/
-cache/
+# Excluding the directory itself (cache/) makes the .gitkeep un-addable:
+# git cannot re-include a file whose parent dir is excluded. Match CONTENTS
+# instead, so the dir can be tracked while its output stays ignored.
+cache/*
+!cache/.gitkeep
 data/
 *.pt
 *.pth
