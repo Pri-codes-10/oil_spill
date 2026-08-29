@@ -1,0 +1,78 @@
+{
+  "ais_source": "mock",
+  "corridor_field_source": "analytic",
+  "suspects": [
+    {
+      "mmsi": 316001234,
+      "name": "MV SYNTHETIC ALPHA",
+      "score": 0.9109,
+      "factors": {
+        "heading_alignment": 1.0,
+        "proximity": 0.9691,
+        "temporal": 0.9167,
+        "speed_anomaly": 0.7094,
+        "transponder_gap": 0.7889
+      },
+      "weights": {
+        "heading_alignment": 0.3,
+        "proximity": 0.25,
+        "temporal": 0.2,
+        "speed_anomaly": 0.15,
+        "transponder_gap": 0.1
+      },
+      "fits_hours_ago": 12,
+      "distance_km": 0.44,
+      "matched_at": "2026-03-13T17:39:11Z",
+      "evidence": "fits a 12h-old discharge, 0.4 km from corridor centre",
+      "rank": 1
+    },
+    {
+      "mmsi": 316007777,
+      "name": "MV DECOY TIME",
+      "score": 0.5423,
+      "factors": {
+        "heading_alignment": 0.921,
+        "proximity": 0.8874,
+        "temporal": 0.0,
+        "speed_anomaly": 0.3011,
+        "transponder_gap": 0.0
+      },
+      "weights": {
+        "heading_alignment": 0.3,
+        "proximity": 0.25,
+        "temporal": 0.2,
+        "speed_anomaly": 0.15,
+        "transponder_gap": 0.1
+      },
+      "fits_hours_ago": 24,
+      "distance_km": 2.1,
+      "matched_at": "2026-03-13T05:41:00Z",
+      "evidence": "on the axis but 12 h outside the corridor's time window",
+      "rank": 2
+    },
+    {
+      "mmsi": 316009999,
+      "name": "MV DECOY CROSS",
+      "score": 0.3556,
+      "factors": {
+        "heading_alignment": 0.04,
+        "proximity": 0.912,
+        "temporal": 0.883,
+        "speed_anomaly": 0.0,
+        "transponder_gap": 0.0
+      },
+      "weights": {
+        "heading_alignment": 0.3,
+        "proximity": 0.25,
+        "temporal": 0.2,
+        "speed_anomaly": 0.15,
+        "transponder_gap": 0.1
+      },
+      "fits_hours_ago": 12,
+      "distance_km": 1.65,
+      "matched_at": "2026-03-13T17:52:40Z",
+      "evidence": "in the corridor at the right time but crossing the slick axis",
+      "rank": 3
+    }
+  ]
+}

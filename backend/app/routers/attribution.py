@@ -8,6 +8,8 @@ Exposes the ranked suspect list. Uses the synthetic AIS generator by default
 truth — WORKFLOW.md §9).
 """
 
+import json
+from pathlib import Path
 from typing import Any, Dict
 
 from fastapi import APIRouter, HTTPException
@@ -18,6 +20,8 @@ from app.attribution.funnel import to_frame
 from app.attribution.rank import rank_suspects
 
 router = APIRouter(prefix="/attribution", tags=["attribution"])
+
+MOCK_PATH = Path(__file__).resolve().parents[2] / "mocks" / "suspects.json"
 
 
 class RankRequest(BaseModel):
@@ -46,3 +50,18 @@ def rank(req: RankRequest):
         }
     except Exception as exc:
         raise HTTPException(500, f"attribution failed: {exc}")
+
+
+@router.get("/mock")
+def mock():
+    """Hand-written suspect list, so frontend is never blocked on a real run.
+
+    Returns ais_source="mock" -- distinct from the live endpoint's
+    "synthetic" -- so a fixture can never be mistaken for pipeline output
+    (WORKFLOW.md 9). Includes the decoys on purpose: a one-row list does not
+    exercise a ranking UI, and the per-factor breakdown is what separates a
+    decoy from the guilty vessel.
+    """
+    if not MOCK_PATH.exists():
+        raise HTTPException(404, "run mocks/generate.py first")
+    return json.loads(MOCK_PATH.read_text())
