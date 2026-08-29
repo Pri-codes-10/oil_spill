@@ -13,7 +13,7 @@ space and time, which is what separates "the origin" from "a sighting."
 import numpy as np
 from pyproj import Geod
 
-from app.drift.field_analytic import AnalyticField
+from app.drift.metocean import MetoceanProvider
 from app.drift.integrate import advect
 from app.drift.seed import seed_in_polygon
 from app.config import (
@@ -33,13 +33,14 @@ def build_corridor(contract1, field_source="analytic", n_members=ENSEMBLE_MEMBER
 
     per_hour = {h: {"lon": [], "lat": []} for h in SAMPLE_HOURS}
 
+    # Resolve the field through the metocean seam BEFORE integrating. An
+    # unimplemented source raises here rather than silently producing analytic
+    # output wearing a real source's name (WORKFLOW.md §9).
+    provider = MetoceanProvider(field_source)
+
     for m in range(n_members):
         # perturb exactly what we are genuinely unsure about
-        field = AnalyticField(
-            u0=0.35 * rng.normal(1.0, 0.20),
-            v0=0.10 * rng.normal(1.0, 0.30),
-            wind_factor=rng.uniform(0.015, 0.035),   # 1.5-3.5 %
-        )
+        field = provider.make_field(rng)
         track = advect(field, lon0, lat0, contract1["observed_at"],
                         hours=max_hours, backward=True,
                         diffusivity=DIFFUSIVITY_M2_S, rng=rng)
@@ -69,5 +70,5 @@ def build_corridor(contract1, field_source="analytic", n_members=ENSEMBLE_MEMBER
     return {
         "observed_at": contract1["observed_at"],
         "corridor": nodes,
-        "field_source": field_source,
+        "field_source": provider.source,   # honest: what actually ran
     }

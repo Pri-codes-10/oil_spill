@@ -38,6 +38,11 @@ SAR_DB_MAX = 5.0
 # ---------------------------------------------------------------------------
 
 WIND_DRIFT_FACTOR = 0.02         # OpenDrift's own default: 2% of wind speed
+# Ensemble perturbation range for the wind drift factor. The literature does
+# not agree on one value, so we sample a plausible band instead of pretending
+# to know it -- this is a genuine source of corridor width.
+WIND_DRIFT_FACTOR_MIN = 0.015
+WIND_DRIFT_FACTOR_MAX = 0.035
 MAX_LOOKBACK_HOURS = 72
 SAMPLE_HOURS = (6, 12, 18, 24, 36, 48, 72)   # corridor nodes (B2_DRIFT.md §5)
 ENSEMBLE_MEMBERS = 8
