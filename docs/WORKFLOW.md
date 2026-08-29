@@ -314,7 +314,27 @@ one fake part becomes real, and **the demo never stops working.**
 | **B1** | Download one real SAFE GRD scene. Parse it, print CRS/transform/UTC. Commit the round-trip test. Write the threshold detector. |
 | **B3** | Synthetic AIS generator emitting NOAA-schema rows. Start the collector in the background. |
 
-**Gate:** `POST /analyse` returns mock JSON and frontend can fetch it.
+**Gate:** the three chain endpoints return mock JSON and frontend can fetch them.
+
+⚠️ **Superseded (day 1, B2 + frontend): there is no `POST /analyse`.** An
+earlier draft of this gate named a single composite endpoint. Frontend chose to
+chain the three calls instead, so no composite endpoint was built and
+`app/main.py` was frozen without one. Adding it later needs a PR against a
+frozen file — do not assume it exists.
+
+| Call | Body | Returns |
+|---|---|---|
+| `POST /api/ingest/detect` | `{"scene_path": "synthetic"}` | Contract 1 |
+| `POST /api/drift/corridor` | `{"contract1": <…>, "field_source": "analytic"}` | Contract 2 |
+| `POST /api/attribution/rank` | `{"contract2": <…>, "slick_bearing_deg": <…>, "use_synthetic_ais": true}` | ranked suspects |
+
+Plus `GET /api/health` and a `GET /api/{ingest,drift,attribution}/mock` per
+stage, which read `mocks/*.json` and need no running chain at all.
+
+⚠️ **`slick_bearing_deg` comes from Contract 1's `orientation_deg`, not from
+Contract 2.** It is the one value that skips a stage, so it is easy to wire from
+the corridor response by mistake — and the failure is silent: heading scoring
+just goes quietly wrong instead of raising.
 
 ### Daily gates
 
