@@ -24,6 +24,9 @@ import importlib
 import json
 import os
 
+from dotenv import load_dotenv
+load_dotenv()
+
 try:
     asyncpg = importlib.import_module("asyncpg")
 except ImportError as exc:
