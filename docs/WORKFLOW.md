@@ -314,7 +314,27 @@ one fake part becomes real, and **the demo never stops working.**
 | **B1** | Download one real SAFE GRD scene. Parse it, print CRS/transform/UTC. Commit the round-trip test. Write the threshold detector. |
 | **B3** | Synthetic AIS generator emitting NOAA-schema rows. Start the collector in the background. |
 
-**Gate:** `POST /analyse` returns mock JSON and frontend can fetch it.
+**Gate:** the three chain endpoints return mock JSON and frontend can fetch them.
+
+⚠️ **Superseded (day 1, B2 + frontend): there is no `POST /analyse`.** An
+earlier draft of this gate named a single composite endpoint. Frontend chose to
+chain the three calls instead, so no composite endpoint was built and
+`app/main.py` was frozen without one. Adding it later needs a PR against a
+frozen file — do not assume it exists.
+
+| Call | Body | Returns |
+|---|---|---|
+| `POST /api/ingest/detect` | `{"scene_path": "synthetic"}` | Contract 1 |
+| `POST /api/drift/corridor` | `{"contract1": <…>, "field_source": "analytic"}` | Contract 2 |
+| `POST /api/attribution/rank` | `{"contract2": <…>, "slick_bearing_deg": <…>, "use_synthetic_ais": true}` | ranked suspects |
+
+Plus `GET /api/health` and a `GET /api/{ingest,drift,attribution}/mock` per
+stage, which read `mocks/*.json` and need no running chain at all.
+
+⚠️ **`slick_bearing_deg` comes from Contract 1's `orientation_deg`, not from
+Contract 2.** It is the one value that skips a stage, so it is easy to wire from
+the corridor response by mistake — and the failure is silent: heading scoring
+just goes quietly wrong instead of raising.
 
 ### Daily gates
 
@@ -340,12 +360,32 @@ on day 6.
 
 ## 8. Known risks
 
-- **OpenDrift backward runs are unverified.** The tutorial documents `time_step`
-  but says nothing about sign, so I could not confirm that negative steps drive
-  a backward run. **B2 checks the API reference or greps the examples on day 1.**
-  If it isn't built in, negate the velocity field in a custom reader and run
-  forward — same mathematics, more plumbing. Knowing on day 1 rather than day 4
-  is the whole point.
+- **OpenDrift backward runs: CONFIRMED SUPPORTED** (checked day 1, B2). A
+  negative `time_step` drives a backward run natively — no custom reader and no
+  field negation needed:
+
+      o.run(duration=duration, time_step=-900, time_step_output=3600)
+
+  Two details that cost time if you learn them late:
+  - `time_step_output` stays **positive**. Only `time_step` is negated.
+  - If you pass a negative `duration`, `time_step` must also be negative, or
+    the model raises *"Time step must be negative if duration is negative."*
+    Simplest is a positive `duration` with a negative `time_step`.
+
+  ⚠️ **A backward run is not the inverse of a forward run** once stochastic
+  processes are active (horizontal diffusion, the random part of wind drift).
+  It yields a probability cloud of possible origins, not a deterministic
+  backtrack. That is not a defect — it is the same irreversibility our own
+  integrator models, and the reason Contract 2 is a corridor of widening nodes
+  rather than a single origin point. If you ever want a cleaner backtrack for
+  debugging, disable diffusion for the reverse run; never do that for a demo,
+  because the resulting false precision is exactly what §9 forbids.
+
+  Verified from the OpenDrift docs and issue tracker (issue #1243 shows the
+  negative-`time_step` call, discussion #762 the sign-consistency error), **not
+  by running it** — OpenDrift is deliberately not installed yet. It stays a
+  day-5 upgrade behind `MetoceanProvider`; `app/drift/integrate.py` remains the
+  critical path.
 - **ERA5 licensing unverified.** CMEMS is confirmed free (*"granted free of
   charge"*, funded to June 2028). ERA5 I could not verify — the CDS domain was
   unreachable. Check the Terms tab at
