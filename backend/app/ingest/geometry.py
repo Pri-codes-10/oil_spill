@@ -1,18 +1,11 @@
 """
 app/ingest/geometry.py
 
-OWNER: B1 (Ingest & Geospatial).
-Produces CONTRACT 1 — see app/contracts.py for the frozen shape.
+B1: Convert detector masks into geographic geometry and Contract 1.
 
-Two traps here, both of which silently produce wrong numbers (B1_INGEST.md §5):
-
-  Trap 1 — you cannot compute area from degrees. shapely's .area on lon/lat
-  coordinates returns square degrees, meaningless and latitude-dependent. Use
-  a geodesic calculation (pyproj.Geod) instead.
-
-  Trap 2 — a slick axis is UNDIRECTED. Orientation must be mod 180, not mod
-  360 — a streak at 70 deg and one at 250 deg are the same axis. Getting this
-  wrong breaks B3's heading-alignment factor, which depends on this value.
+Important:
+- Area is calculated geodesically using WGS84.
+- Slick orientation is an undirected axis, so bearing is modulo 180.
 """
 
 from pyproj import Geod
@@ -20,69 +13,220 @@ from rasterio.features import shapes
 from shapely.geometry import shape, mapping
 from shapely.ops import unary_union
 
-from app.config import POLYGON_PROB_THRESHOLD, THRESHOLD_MIN_PIXELS
+from app.config import (
+    POLYGON_PROB_THRESHOLD,
+    THRESHOLD_MIN_PIXELS,
+)
+
 
 GEOD = Geod(ellps="WGS84")
 
 
-def mask_to_polygon(prob, transform, threshold=POLYGON_PROB_THRESHOLD,
-                     min_pixels=THRESHOLD_MIN_PIXELS):
-    """Binarise, vectorise, keep significant parts, return one shapely geometry."""
+def mask_to_polygon(
+    prob,
+    transform,
+    threshold=POLYGON_PROB_THRESHOLD,
+    min_pixels=THRESHOLD_MIN_PIXELS,
+):
+    """
+    Convert a probability mask into the largest significant polygon.
+
+    Parameters
+    ----------
+    prob : numpy.ndarray
+        2D probability-like mask.
+
+    transform : rasterio.transform.Affine
+        Geographic transform for the raster.
+
+    threshold : float
+        Minimum probability/confidence required for a pixel
+        to become part of the candidate region.
+
+    min_pixels : int
+        Minimum number of pixels required for a region.
+
+    Returns
+    -------
+    shapely.geometry.Polygon or None
+        Largest valid polygon, or None if no region survives.
+    """
+
     binary = (prob >= threshold).astype("uint8")
-    polys = [
-        shape(geom)
-        for geom, val in shapes(binary, mask=binary.astype(bool), transform=transform)
-        if val == 1
-    ]
-    if not polys:
+
+    if not binary.any():
         return None
-    merged = unary_union(polys)
-    parts = list(getattr(merged, "geoms", [merged]))
-    parts = [p for p in parts if p.area > 0]
+
+    polygon_data = shapes(
+        binary,
+        mask=binary.astype(bool),
+        transform=transform,
+    )
+
+    polygons = []
+
+    for geom, value in polygon_data:
+        if value != 1:
+            continue
+
+        polygon = shape(geom)
+
+        if polygon.is_empty or polygon.area <= 0:
+            continue
+
+        polygons.append(polygon)
+
+    if not polygons:
+        return None
+
+    significant = []
+
+    for polygon in polygons:
+        pixel_area = 0
+
+        # Approximate pixel count from the rasterized polygon.
+        # This prevents tiny detected regions from becoming slicks.
+        minx, miny, maxx, maxy = polygon.bounds
+
+        if maxx > minx and maxy > miny:
+            pixel_area = int(prob[
+                max(0, int(miny)):min(prob.shape[0], int(maxy) + 1),
+                max(0, int(minx)):min(prob.shape[1], int(maxx) + 1),
+            ].size)
+
+        if pixel_area >= min_pixels:
+            significant.append(polygon)
+
+    if not significant:
+        return None
+
+    merged = unary_union(significant)
+
+    if merged.is_empty:
+        return None
+
+    if hasattr(merged, "geoms"):
+        parts = [
+            part
+            for part in merged.geoms
+            if not part.is_empty and part.area > 0
+        ]
+    else:
+        parts = [merged]
+
     if not parts:
         return None
-    return max(parts, key=lambda p: p.area)
+
+    return max(parts, key=lambda part: part.area)
 
 
 def geodesic_area_km2(poly):
+    """
+    Calculate polygon area in square kilometres using WGS84.
+    """
+
     area_m2, _ = GEOD.geometry_area_perimeter(poly)
-    return abs(area_m2) / 1e6
+
+    return abs(area_m2) / 1_000_000.0
 
 
 def axes_and_orientation(poly):
-    """Major/minor axis in km and axis bearing in degrees (0=N, mod 180)."""
+    """
+    Calculate major axis, minor axis and undirected bearing.
+
+    Bearing is returned in the range [0, 180).
+    """
+
     rect = poly.minimum_rotated_rectangle
+
     xs, ys = rect.exterior.coords.xy
-    pts = list(zip(xs, ys))[:4]
+    points = list(zip(xs, ys))[:4]
 
     edges = []
+
     for i in range(4):
-        (x1, y1), (x2, y2) = pts[i], pts[(i + 1) % 4]
-        _, _, dist_m = GEOD.inv(x1, y1, x2, y2)
-        edges.append((dist_m / 1000.0, x1, y1, x2, y2))
+        x1, y1 = points[i]
+        x2, y2 = points[(i + 1) % 4]
 
-    edges.sort(key=lambda e: e[0], reverse=True)
+        azimuth, _, distance_m = GEOD.inv(
+            x1,
+            y1,
+            x2,
+            y2,
+        )
+
+        edges.append(
+            (
+                distance_m / 1000.0,
+                x1,
+                y1,
+                x2,
+                y2,
+                azimuth,
+            )
+        )
+
+    edges.sort(
+        key=lambda edge: edge[0],
+        reverse=True,
+    )
+
     major = edges[0]
-    minor_km = edges[-1][0]
+    minor = edges[-1]
 
-    az, _, _ = GEOD.inv(major[1], major[2], major[3], major[4])
-    bearing = az % 180.0                     # axis has no direction
-    return major[0], minor_km, bearing
+    bearing = major[5] % 180.0
+
+    return (
+        major[0],
+        minor[0],
+        bearing,
+    )
 
 
-def build_contract1(poly, observed_at, confidence, detector):
-    """Assemble CONTRACT 1. See app/contracts.py::validate_contract1."""
+def build_contract1(
+    poly,
+    observed_at,
+    confidence,
+    detector,
+):
+    """
+    Build the frozen B1 -> B2 Contract 1 structure.
+    """
+
     major, minor, bearing = axes_and_orientation(poly)
-    cx, cy = poly.centroid.x, poly.centroid.y
+
+    centroid = poly.centroid
+
     return {
-        "observed_at": observed_at.isoformat().replace("+00:00", "Z"),
+        "observed_at": observed_at.isoformat().replace(
+            "+00:00",
+            "Z",
+        ),
         "crs": "EPSG:4326",
         "polygon": mapping(poly)["coordinates"],
-        "area_km2": round(geodesic_area_km2(poly), 3),
-        "major_axis_km": round(major, 3),
-        "minor_axis_km": round(minor, 3),
-        "orientation_deg": round(bearing, 2),
-        "centroid": [round(cx, 6), round(cy, 6)],
-        "confidence": round(float(confidence), 3),
+        "area_km2": round(
+            geodesic_area_km2(poly),
+            3,
+        ),
+        "major_axis_km": round(
+            major,
+            3,
+        ),
+        "minor_axis_km": round(
+            minor,
+            3,
+        ),
+        "orientation_deg": round(
+            bearing,
+            2,
+        ),
+        "centroid": [
+            round(centroid.x, 6),
+            round(centroid.y, 6),
+        ],
+        "confidence": round(
+            float(confidence),
+            3,
+        ),
         "detector": detector,
     }
