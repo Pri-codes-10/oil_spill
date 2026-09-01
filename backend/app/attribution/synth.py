@@ -88,10 +88,10 @@ def make_scenario(corridor, slick_bearing_deg, rng_seed=0):
     rows += _track(316009012, node["lon"] + 1.6, node["lat"] + 1.1,
                     40.0, 12.0, t_guilty - timedelta(hours=4), 14,
                     name="MV DECOY SPACE", rng=rng)
-    # right place and time, but crossing the slick axis at ~90 deg
-    rows += _track(316003456, node["lon"] - 0.3, node["lat"] + 0.4,
+        # right place and time, but crossing the slick axis at ~90 deg
+    rows += _track(316003456, node["lon"] - 0.02, node["lat"] + 0.02,
                     (slick_bearing_deg + 90) % 360, 9.0,
-                    t_guilty - timedelta(hours=5), 14,
+                    t_guilty - timedelta(hours=1), 6,
                     name="MV DECOY CROSS", rng=rng)
 
     for k in range(12):                              # ambient traffic
