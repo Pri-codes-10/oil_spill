@@ -17,6 +17,7 @@ judge asking "why 400 pixels?" gets an answer you can point to.
 # Sliding-window tiling (app/ingest/tiling.py)
 TILE_SIZE = 512
 TILE_OVERLAP = 64
+INGEST_MAX_DIMENSION = 4096
 
 # Threshold fallback detector (app/ingest/detect_threshold.py)
 THRESHOLD_BLOCK_SIZE = 201       # local-threshold neighbourhood, px (must be odd)
