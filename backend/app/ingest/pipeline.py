@@ -28,8 +28,9 @@ from pathlib import Path
 
 import numpy as np
 
-from app.ingest import safe, reader, tiling, detect_threshold, geometry
+from app.ingest import safe, reader, tiling, detect_threshold, geometry, vectorize
 from app.common.timeutil import utc
+from app.config import INGEST_MAX_DIMENSION
 
 # --- day 1 -> day 5 swap point (Contract 0) --------------------------------
 MODEL = detect_threshold.predict
@@ -80,11 +81,17 @@ def detect_scene(scene_path):
         vv_path = _find_measurement_tiff(scene_path, "vv")
         vh_path = _find_measurement_tiff(scene_path, "vh")
 
-        vv_dn, transform, _crs = reader.open_grd_band(vv_path)
+        vv_dn, transform, _crs = reader.open_grd_band(
+            vv_path,
+            max_dimension=INGEST_MAX_DIMENSION,
+        )
         vv_db = reader.to_db(vv_dn)
 
         if vh_path is not None:
-            vh_dn, _, _ = reader.open_grd_band(vh_path)
+            vh_dn, _, _ = reader.open_grd_band(
+                vh_path,
+                max_dimension=INGEST_MAX_DIMENSION,
+            )
             vh_db = reader.to_db(vh_dn)
         else:
             vh_db = vv_db.copy()   # single-pol product fallback
@@ -92,7 +99,7 @@ def detect_scene(scene_path):
         img = np.stack([vv_db, vh_db], axis=-1)
 
     prob = tiling.predict_scene(img, MODEL)
-    poly = geometry.mask_to_polygon(prob, transform)
+    poly = vectorize.mask_to_polygon(prob, transform)
 
     if poly is None:
         raise RuntimeError(
