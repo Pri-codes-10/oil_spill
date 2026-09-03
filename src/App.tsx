@@ -1,0 +1,144 @@
+import React, { useState } from 'react';
+import { ActiveTab, GisLayers, MorphologicalProperties, OperationNotification, SceneMetadata } from './types';
+import { DEFAULT_DETECTION, DEMO_SCENES, INITIAL_GIS_LAYERS, INITIAL_NOTIFICATIONS, SUSPECT_VESSELS } from './data';
+import { TopAppBar } from './components/TopAppBar';
+import { SideNavBar } from './components/SideNavBar';
+import { IngestView } from './components/views/IngestView';
+import { MapView } from './components/views/MapView';
+import { DetectionView } from './components/views/DetectionView';
+import { DriftView } from './components/views/DriftView';
+import { SuspectsView } from './components/views/SuspectsView';
+import { ExportView } from './components/views/ExportView';
+import { ReportPreviewModal } from './components/modals/ReportPreviewModal';
+import { HelpModal } from './components/modals/HelpModal';
+import { OperatorModal } from './components/modals/OperatorModal';
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState<ActiveTab>('map');
+  const [currentScene, setCurrentScene] = useState<SceneMetadata>(DEMO_SCENES[0]);
+  const [detection, setDetection] = useState<MorphologicalProperties>(DEFAULT_DETECTION);
+  const [gisLayers, setGisLayers] = useState<GisLayers>(INITIAL_GIS_LAYERS);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [notifications, setNotifications] = useState<OperationNotification[]>(INITIAL_NOTIFICATIONS);
+
+  // Modals state
+  const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState<boolean>(false);
+  const [isOperatorModalOpen, setIsOperatorModalOpen] = useState<boolean>(false);
+
+  const handleSceneChange = (scene: SceneMetadata) => {
+    setCurrentScene(scene);
+    if (scene.detections && scene.detections.length > 0) {
+      setDetection(scene.detections[0]);
+    }
+  };
+
+  const handleSelectDetection = (det: MorphologicalProperties) => {
+    setDetection(det);
+  };
+
+  return (
+    <div className="flex h-screen w-screen overflow-hidden font-sans antialiased select-none" style={{ background: 'var(--gov-bg)', color: 'var(--gov-text-primary)' }}>
+      
+      {/* Side Rail Navigation (Fixed Left, 72px width) */}
+      <SideNavBar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab}
+        onOpenOperatorProfile={() => setIsOperatorModalOpen(true)}
+      />
+
+      {/* Main Container Area (Offset by 72px left rail) */}
+      <div className="flex flex-col flex-1 h-screen pl-[72px]">
+        
+        {/* Top App Bar (Fixed Top) */}
+        <TopAppBar 
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          notifications={notifications}
+          setNotifications={setNotifications}
+          onOpenHelp={() => setIsHelpModalOpen(true)}
+        />
+
+        {/* Dynamic View Canvas Area (Below Top App Bar) */}
+        <main className="flex-1 w-full h-[calc(100vh-72px)] mt-[72px] overflow-hidden relative">
+          {activeTab === 'ingest' && (
+            <IngestView 
+              currentScene={currentScene}
+              setCurrentScene={handleSceneChange}
+              onContinueToMap={() => setActiveTab('map')}
+            />
+          )}
+
+          {activeTab === 'map' && (
+            <MapView 
+              currentScene={currentScene}
+              activeDetection={detection}
+              gisLayers={gisLayers}
+              setGisLayers={setGisLayers}
+              onSelectDetection={(selectedDet) => {
+                if (selectedDet) setDetection(selectedDet);
+                setActiveTab('detection');
+              }}
+            />
+          )}
+
+          {activeTab === 'detection' && (
+            <DetectionView 
+              currentScene={currentScene}
+              detection={detection}
+              onSelectDetection={handleSelectDetection}
+              onViewDriftAnalysis={() => setActiveTab('drift')}
+              onCloseDrawer={() => setActiveTab('map')}
+            />
+          )}
+
+          {activeTab === 'drift' && (
+            <DriftView 
+              currentScene={currentScene}
+              onProceedToSuspects={() => setActiveTab('suspects')}
+            />
+          )}
+
+          {activeTab === 'suspects' && (
+            <SuspectsView 
+              currentScene={currentScene}
+              searchQuery={searchQuery}
+              onProceedToExport={() => setActiveTab('export')}
+            />
+          )}
+
+          {activeTab === 'export' && (
+            <ExportView 
+              currentScene={currentScene}
+              detection={detection}
+              topSuspect={SUSPECT_VESSELS[0]}
+              onOpenReportPreview={() => setIsReportModalOpen(true)}
+            />
+          )}
+        </main>
+      </div>
+
+      {/* Global Modals */}
+      <ReportPreviewModal 
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        currentScene={currentScene}
+        detection={detection}
+        topSuspect={SUSPECT_VESSELS[0]}
+      />
+
+      <HelpModal 
+        isOpen={isHelpModalOpen}
+        onClose={() => setIsHelpModalOpen(false)}
+      />
+
+      <OperatorModal 
+        isOpen={isOperatorModalOpen}
+        onClose={() => setIsOperatorModalOpen(false)}
+      />
+
+    </div>
+  );
+}
