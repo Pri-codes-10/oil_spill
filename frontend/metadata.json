@@ -1,0 +1,6 @@
+{
+  "name": "Maritime Operations v2.0",
+  "description": "Advanced SAR satellite anomaly detection, drift trajectory hindcasting, and vessel attribution intelligence platform.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

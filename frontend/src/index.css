@@ -1,0 +1,573 @@
+@import "tailwindcss";
+
+/* ============================================================
+   AQUATRACE — INDIAN GOVERNMENT PORTAL DESIGN SYSTEM
+   Palette: Indian Tricolour — Saffron / White / India Green
+   Visual reference: Digital India, NIC, data.gov.in portals
+   ============================================================ */
+
+/* --- Government Colour Tokens --- */
+:root {
+  /* Indian Tricolour palette */
+  --gov-saffron: #FF9933;
+  --gov-saffron-light: #FFF3E0;
+  --gov-saffron-dim: #E8861A;
+  --gov-green: #138808;
+  --gov-green-light: #E8F5E9;
+  --gov-green-dim: #0E6E06;
+  --gov-navy: #000080;
+  --gov-navy-light: #E8EAF6;
+  --gov-navy-mid: #1A237E;
+
+  /* Surface colours */
+  --gov-bg: #F5F6F8;
+  --gov-surface: #FFFFFF;
+  --gov-surface-alt: #F0F2F5;
+  --gov-surface-hover: #EBF0FF;
+
+  /* Border colours */
+  --gov-border: #D1D5DB;
+  --gov-border-strong: #9CA3AF;
+
+  /* Text colours */
+  --gov-text-primary: #1A1A2E;
+  --gov-text-secondary: #4A5568;
+  --gov-text-muted: #718096;
+  --gov-text-navy: #000080;
+  --gov-text-green: #138808;
+  --gov-text-saffron: #D97706;
+
+  /* Status colours */
+  --gov-success: #138808;
+  --gov-success-bg: #E8F5E9;
+  --gov-warning: #FF9933;
+  --gov-warning-bg: #FFF3E0;
+  --gov-error: #C62828;
+  --gov-error-bg: #FFEBEE;
+  --gov-info: #000080;
+  --gov-info-bg: #E8EAF6;
+
+  /* Fonts */
+  --font-gov: "Noto Sans", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "IBM Plex Mono", "Courier New", monospace;
+
+  /* Legacy compat */
+  --color-primary: #138808;
+  --spacing-rail-width: 72px;
+  --spacing-panel-width: 380px;
+}
+
+/* ============================================================
+   BASE RESET
+   ============================================================ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-gov);
+  background: var(--gov-bg);
+  color: var(--gov-text-primary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ============================================================
+   GOVERNMENT CARD COMPONENT
+   ============================================================ */
+.gov-card {
+  background: var(--gov-surface);
+  border: 2px solid var(--gov-border);
+  border-radius: 20px;
+  overflow: hidden;
+  position: relative;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 128, 0.06);
+}
+
+.gov-card:hover {
+  border-color: var(--gov-green);
+}
+
+/* Legacy bento-card mapped to gov-card */
+.bento-card {
+  background: var(--gov-surface);
+  border: 2px solid var(--gov-border);
+  border-radius: 50px;
+  overflow: hidden;
+  position: relative;
+  transition: border-color 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 128, 0.06);
+}
+
+.bento-card:hover {
+  border-color: var(--gov-border-strong);
+}
+
+.bento-card-header {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gov-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* ============================================================
+   GOVERNMENT BUTTON STYLES
+   ============================================================ */
+
+/* Primary — India Green */
+.gov-btn-primary {
+  background: var(--gov-green);
+  color: #ffffff;
+  border: 1px solid var(--gov-green);
+  border-radius: 10px;
+  padding: 8px 20px;
+  font-family: var(--font-gov);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gov-btn-primary:hover {
+  background: var(--gov-green-dim);
+}
+
+/* Secondary — Navy outline */
+.gov-btn-secondary {
+  background: #ffffff;
+  color: var(--gov-navy);
+  border: 1.5px solid var(--gov-navy);
+  border-radius: 3px;
+  padding: 8px 20px;
+  font-family: var(--font-gov);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gov-btn-secondary:hover {
+  background: var(--gov-navy-light);
+}
+
+/* Saffron accent (use sparingly) */
+.gov-btn-accent {
+  background: var(--gov-saffron);
+  color: #fff;
+  border: 1px solid var(--gov-saffron-dim);
+  border-radius: 3px;
+  padding: 8px 20px;
+  font-family: var(--font-gov);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.gov-btn-accent:hover {
+  background: var(--gov-saffron-dim);
+}
+
+/* ============================================================
+   GOVERNMENT TAG / BADGE STYLES
+   ============================================================ */
+.tag {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  background: var(--gov-surface-alt);
+  border: 1px solid var(--gov-border);
+  border-radius: 2px;
+  color: var(--gov-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-gov);
+}
+
+.tag-active {
+  background: var(--gov-green-light);
+  border-color: var(--gov-green);
+  color: var(--gov-green);
+}
+
+.tag-cyan {
+  background: #E3F2FD;
+  border-color: #1565C0;
+  color: #1565C0;
+}
+
+.tag-emerald {
+  background: var(--gov-green-light);
+  border-color: var(--gov-green);
+  color: var(--gov-green);
+}
+
+.tag-amber {
+  background: var(--gov-warning-bg);
+  border-color: var(--gov-saffron-dim);
+  color: var(--gov-saffron-dim);
+}
+
+/* ============================================================
+   GOVERNMENT TABLE STYLES
+   ============================================================ */
+.gov-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.gov-table th {
+  background: #EEF0F7;
+  color: var(--gov-navy);
+  font-weight: 700;
+  text-align: left;
+  padding: 10px 14px;
+  border: 1px solid var(--gov-border);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.gov-table td {
+  padding: 9px 14px;
+  border: 1px solid var(--gov-border);
+  color: var(--gov-text-primary);
+  vertical-align: top;
+}
+
+.gov-table tr:nth-child(even) td {
+  background: var(--gov-surface-alt);
+}
+
+.gov-table tr:hover td {
+  background: var(--gov-navy-light);
+}
+
+/* ============================================================
+   GOVERNMENT FORM STYLES
+   ============================================================ */
+.gov-input {
+  background: #ffffff;
+  border: 1.5px solid var(--gov-border-strong);
+  border-radius: 2px;
+  padding: 8px 12px;
+  font-family: var(--font-gov);
+  font-size: 13px;
+  color: var(--gov-text-primary);
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.gov-input:focus {
+  border-color: var(--gov-navy);
+  box-shadow: 0 0 0 2px rgba(0, 0, 128, 0.12);
+}
+
+.gov-select {
+  background: #ffffff;
+  border: 1.5px solid var(--gov-border-strong);
+  border-radius: 2px;
+  padding: 7px 10px;
+  font-family: var(--font-gov);
+  font-size: 12px;
+  color: var(--gov-text-primary);
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.gov-select:focus {
+  border-color: var(--gov-navy);
+}
+
+/* ============================================================
+   GOVERNMENT SECTION HEADER
+   ============================================================ */
+.gov-section-header {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gov-navy);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--gov-border);
+  margin-bottom: 12px;
+}
+
+/* Saffron top accent line (used under headers) */
+.gov-saffron-stripe {
+  height: 10px;
+  background: linear-gradient(to right, var(--gov-saffron) 33%, #e4e3e3 33% 66%, var(--gov-green) 66%);
+}
+
+/* ============================================================
+   FONT UTILITY CLASSES (Preserved for compatibility)
+   ============================================================ */
+.font-headline-md {
+  font-family: var(--font-gov);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.font-display-lg {
+  font-family: var(--font-gov);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.font-data-mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1, "zero" 1;
+}
+
+.font-data-lg {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.font-label-caps {
+  font-family: var(--font-gov);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.font-body-md {
+  font-family: var(--font-gov);
+}
+
+/* ============================================================
+   MAP / SVG OVERLAY UTILITIES (Preserved — canvas visuals)
+   ============================================================ */
+.map-glow {
+  filter: drop-shadow(0 0 6px rgba(19, 136, 8, 0.7));
+}
+
+.map-glow-cyan {
+  filter: drop-shadow(0 0 6px rgba(0, 0, 128, 0.6));
+}
+
+.map-glow-amber {
+  filter: drop-shadow(0 0 6px rgba(255, 153, 51, 0.7));
+}
+
+.polygon-spill {
+  fill: rgba(255, 153, 51, 0.2);
+  stroke: rgba(255, 153, 51, 1);
+  stroke-width: 2px;
+  filter: drop-shadow(0 0 8px rgba(255, 153, 51, 0.8));
+}
+
+.sar-slick {
+  background: rgba(19, 136, 8, 0.2);
+  border: 1.5px solid #138808;
+  box-shadow: 0 0 12px rgba(19, 136, 8, 0.4);
+}
+
+/* ============================================================
+   RANGE SLIDER STYLING (Light government style)
+   ============================================================ */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  background: transparent;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 14px;
+  width: 14px;
+  border-radius: 50%;
+  background: var(--gov-navy);
+  cursor: pointer;
+  margin-top: -5px;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 128, 0.4);
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 4px;
+  cursor: pointer;
+  background: #CBD5E0;
+  border-radius: 2px;
+}
+
+/* Drift scrubber animations (preserved for map canvas) */
+@keyframes pulse-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(19, 136, 8, 0.5);
+  }
+
+  70% {
+    box-shadow: 0 0 0 6px rgba(19, 136, 8, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(19, 136, 8, 0);
+  }
+}
+
+.scrubber-handle {
+  animation: pulse-glow 2s infinite;
+}
+
+/* Dashed path animations (preserved for drift SVG canvas) */
+@keyframes dash-backward {
+  to {
+    stroke-dashoffset: 24;
+  }
+}
+
+@keyframes dash-forward {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.path-backward {
+  stroke-dasharray: 6 6;
+  animation: dash-backward 1.5s linear infinite;
+}
+
+.path-forward {
+  stroke-dasharray: 6 6;
+  animation: dash-forward 1.5s linear infinite;
+}
+
+/* ============================================================
+   GOVERNMENT SCROLLBAR (Light, minimal)
+   ============================================================ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F0F2F5;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E0;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9CA3AF;
+}
+
+/* ============================================================
+   FOCUS ACCESSIBILITY (Keyboard navigation)
+   ============================================================ */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--gov-navy);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   GOVERNMENT ALERT / STATUS BOXES
+   ============================================================ */
+.gov-alert-success {
+  background: var(--gov-success-bg);
+  border: 1px solid var(--gov-green);
+  border-left: 4px solid var(--gov-green);
+  color: var(--gov-green-dim);
+  padding: 10px 14px;
+  border-radius: 2px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gov-alert-warning {
+  background: var(--gov-warning-bg);
+  border: 1px solid var(--gov-saffron);
+  border-left: 4px solid var(--gov-saffron);
+  color: #92400E;
+  padding: 10px 14px;
+  border-radius: 2px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gov-alert-info {
+  background: var(--gov-info-bg);
+  border: 1px solid var(--gov-navy);
+  border-left: 4px solid var(--gov-navy);
+  color: var(--gov-navy);
+  padding: 10px 14px;
+  border-radius: 2px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gov-alert-error {
+  background: var(--gov-error-bg);
+  border: 1px solid var(--gov-error);
+  border-left: 4px solid var(--gov-error);
+  color: var(--gov-error);
+  padding: 10px 14px;
+  border-radius: 2px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ============================================================
+   ACCENT GLOWS (Removed — replaced with flat gov styles)
+   Kept as empty rules to avoid breaking any direct references
+   ============================================================ */
+.accent-glow {
+  display: none;
+}
+
+.accent-glow-cyan {
+  display: none;
+}
+
+.accent-glow-emerald {
+  display: none;
+}
+
+/* ============================================================
+   RESPONSIVE — Mobile adjustments
+   ============================================================ */
+@media (max-width: 640px) {
+  .gov-card {
+    border-radius: 2px;
+  }
+
+  body {
+    font-size: 13px;
+  }
+}
