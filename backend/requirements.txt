@@ -22,6 +22,7 @@ scipy==1.13.1
 shapely==2.1.2           # bumped from 2.0.5: 2.0.5's union_all() breaks under numpy>=2.1 (TypeError in create_collection)
 uvicorn==0.30.6
 websockets==12.0
+xarray==2024.7.0
 
 # --- optional, day-5 upgrade path (B2 §7 / §10) ---
 # opendrift==1.11.9
