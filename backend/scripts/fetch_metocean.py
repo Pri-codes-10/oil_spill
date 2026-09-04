@@ -154,7 +154,8 @@ def fetch_wind(contract1, out_dir):
             ) from exc
         parts.append(xr.open_dataset(part_path))
 
-    combined = xr.concat(parts, dim="valid_time") if len(parts) > 1 else parts[0]
+    wind_time_dim = "valid_time" if "valid_time" in parts[0].dims else "time"
+    combined = xr.concat(parts, dim=wind_time_dim) if len(parts) > 1 else parts[0]
     combined.to_netcdf(out_dir / "wind.nc")
     for p in parts:
         p.close()
