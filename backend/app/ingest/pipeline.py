@@ -81,6 +81,13 @@ def detect_scene(scene_path):
         vv_path = _find_measurement_tiff(scene_path, "vv")
         vh_path = _find_measurement_tiff(scene_path, "vh")
 
+        if vv_path is None:
+            raise FileNotFoundError(
+                f"no VV measurement TIFF found in SAFE product {Path(scene_path)}; "
+                "ensure the product download is complete and contains "
+                "measurement/*-vv-*.tiff"
+            )
+
         vv_dn, transform, _crs = reader.open_grd_band(
             vv_path,
             max_dimension=INGEST_MAX_DIMENSION,

@@ -50,3 +50,15 @@ def test_detect_scene_reads_and_processes_vv_tiff(tmp_path):
     assert result["detector"] == "threshold"
     assert result["area_km2"] > 0
     assert result["confidence"] > 0
+
+
+def test_detect_scene_reports_incomplete_safe(tmp_path):
+    safe_dir = tmp_path / SAFE_NAME
+    safe_dir.mkdir()
+
+    try:
+        pipeline.detect_scene(safe_dir)
+    except FileNotFoundError as exc:
+        assert "no VV measurement TIFF" in str(exc)
+    else:
+        raise AssertionError("an incomplete SAFE product should fail clearly")
