@@ -51,6 +51,13 @@ ENSEMBLE_PARTICLES = 300
 CORRIDOR_RADIUS_PERCENTILE = 90  # NOT max — one stray particle shouldn't inflate uncertainty
 DIFFUSIVITY_M2_S = 1.0           # turbulent diffusion added to the ensemble (irreversible)
 
+# Real metocean cache (app/drift/field_real.py, scripts/fetch_metocean.py).
+# fetch_metocean.py downloads a CMEMS+ERA5 subset ahead of time; the reader
+# only ever opens local files, so a live API call never blocks a request.
+METOCEAN_CACHE_DIR = "data/metocean"
+METOCEAN_BBOX_PAD_DEG = 2.0       # drift can carry particles outside the polygon's own bbox
+METOCEAN_TIME_PAD_HOURS = 1       # rounding slack at the fetch window's edges
+
 # ---------------------------------------------------------------------------
 # Attribution  (B3 — app/attribution/)
 # ---------------------------------------------------------------------------

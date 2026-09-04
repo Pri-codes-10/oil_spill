@@ -36,7 +36,7 @@ def build_corridor(contract1, field_source="analytic", n_members=ENSEMBLE_MEMBER
     # Resolve the field through the metocean seam BEFORE integrating. An
     # unimplemented source raises here rather than silently producing analytic
     # output wearing a real source's name (WORKFLOW.md §9).
-    provider = MetoceanProvider(field_source)
+    provider = MetoceanProvider(field_source, contract1=contract1)
 
     for m in range(n_members):
         # perturb exactly what we are genuinely unsure about

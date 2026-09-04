@@ -78,6 +78,7 @@ stage is not a bottleneck; do not optimise it.
 | `seed.py` | rejection-samples particles uniformly inside the polygon. |
 | `metocean.py` | **the seam.** Every velocity field resolves through here, so the label on Contract 2 cannot lie. |
 | `field_analytic.py` | constant current + meridional shear + steady wind. Not physically real; it exists so the chain runs before CMEMS clears. |
+| `field_real.py` | real reader: CMEMS `uo`/`vo` + ERA5 `u10`/`v10` off local cache files, via `scipy.RegularGridInterpolator`. |
 
 Flow: `seed.py` → `metocean.py` (one field per member) → `integrate.py`
 (backward RK4) → `corridor.py` (spread → nodes).
@@ -135,12 +136,11 @@ origin" from "a sighting."
 
 Ordered by how quietly it fails.
 
-**1. `field_source` must never lie.** `MetoceanProvider` raises
-`NotImplementedError` on `cmems_era5` because no reader exists yet. Do not
-"fix" that by falling back to analytic. The entire point is that an
-unimplemented source fails loudly instead of returning simulated data wearing a
-real source's name. Add to `IMPLEMENTED` only once a reader has actually run
-against real data.
+**1. `field_source` must never lie.** `cmems_era5` is now in `IMPLEMENTED`
+(day-5 upgrade landed — see below), backed by `field_real.py`. Any *other*
+unimplemented source must still raise `NotImplementedError` rather than
+falling back to analytic silently. Do not add a name to `IMPLEMENTED` until a
+reader for it has actually run against real data.
 
 **2. All 8 members share identical seed positions.** `seed_in_polygon()` is
 called *once*, outside the member loop, so ensemble spread comes only from field
@@ -185,26 +185,43 @@ That is B1's file: tell them, do not patch it here.
 
 ---
 
-## Day-5 upgrade path
+## Day-5 upgrade path — landed
 
-Write a real reader behind `MetoceanProvider`, add `"cmems_era5"` to
-`IMPLEMENTED`, and nothing else in this folder changes. That is the entire
-reason the seam exists.
+`"cmems_era5"` is now in `IMPLEMENTED`. `MetoceanProvider.describe()` returns
+the mandatory attribution string ("Generated using E.U. Copernicus Marine
+Service Information") for it — this must now show in the UI footer whenever
+`field_source == "cmems_era5"`.
 
-- **CMEMS** supplies currents (`uo`, `vo`), product
-  `GLOBAL_ANALYSISFORECAST_PHY_001_024`. Attribution is **mandatory**:
-  "Generated using E.U. Copernicus Marine Service Information". That string is
-  already wired into `MetoceanProvider.describe()`, but note it returns
-  `attribution: None` today — deliberately, since analytic output needs no
-  credit and claiming one would be its own dishonesty. It starts returning the
-  string the moment a real source is in `IMPLEMENTED`, and that is when the UI
-  footer must show it.
-- **ERA5** supplies 10 m wind, which is what `wind_factor` multiplies.
-- **OpenDrift** is optional. Backward runs are confirmed supported natively via a
-  negative `time_step` (`docs/WORKFLOW.md` §8). It stays a day-5 *upgrade*, not a
-  dependency — `integrate.py` is the critical path.
+- **CMEMS** supplies currents (`uo`, `vo`), dataset
+  `cmems_mod_glo_phy_anfc_merged-uv_PT1H-i` (hourly, so RK4's four sub-stage
+  calls per step get genuine time interpolation, not nearest-hour snapping).
+  No observed availability lag — confirmed fetchable up to the current day.
+- **ERA5** supplies 10 m wind (`u10`, `v10`), which is what `wind_factor`
+  multiplies, same as `AnalyticField`. **Has a real availability lag**,
+  observed empirically at ~5 days behind "now". A request whose 72 h lookback
+  falls inside that gap fails loudly (`RuntimeError` naming the constraint) —
+  it does not fall back to analytic wind silently.
+- **Fetch-ahead, not live-fetch.** `scripts/fetch_metocean.py
+  mocks/polygon.json` downloads both sources into
+  `data/metocean/<observed_at>_<bbox>/` before a request ever runs.
+  `field_real.py` only opens those local files — a live CDS/CMEMS call takes
+  10–90+ s, far too slow to block a synchronous
+  `POST /api/drift/corridor`. Run the fetch script once per real scene before
+  asking for `field_source="cmems_era5"`; a missing cache raises
+  `FileNotFoundError` naming the fetch command to run.
+- Interpolation is `scipy.interpolate.RegularGridInterpolator`, built once per
+  field and reused across all RK4 sub-stage calls — not xarray's `.interp()`,
+  which benchmarked two orders of magnitude too slow for this workload (~90 s
+  vs ~1.8 s for a full ensemble). Confirmed value-identical to `.interp()` to
+  1e-5. ERA5's latitude axis comes back descending; `field_real.py` flips it
+  before building the interpolator, since `RegularGridInterpolator` requires
+  strictly ascending axes.
+- **OpenDrift** is still optional/unused. Backward runs are confirmed supported
+  natively via a negative `time_step` (`docs/WORKFLOW.md` §8), but
+  `integrate.py` remains the critical path — this upgrade did not need it.
 
-Once a real field is wired, the clock in `advect()` becomes load-bearing: it
-advances per step and walks backwards on a backward run, so a time-varying
-reader is asked for the right hour. Two spy-field tests guard that, because no
-numeric assertion can see it while `AnalyticField` ignores its `when` argument.
+The clock in `advect()` is now load-bearing for real: it advances per step and
+walks backwards on a backward run, so `field_real.py` is asked for the right
+hour at each RK4 sub-stage. Two spy-field tests guard that this wiring is
+correct, because no numeric assertion can see it while `AnalyticField` ignored
+its `when` argument.
