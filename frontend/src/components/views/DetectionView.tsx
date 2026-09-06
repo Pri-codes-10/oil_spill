@@ -1,15 +1,16 @@
-import React, { useState, useRef } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import { MorphologicalProperties, SceneMetadata } from '../../types';
-import { 
-  ShieldCheck, 
-  X, 
-  ArrowRight, 
-  History, 
-  Droplet, 
-  Compass, 
-  ZoomIn, 
-  ZoomOut, 
-  RotateCcw, 
+import { LatLon, parseCentroidString, projectPoints } from '../../utils/geoProjection';
+import {
+  ShieldCheck,
+  X,
+  ArrowRight,
+  History,
+  Droplet,
+  Compass,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
   Radio,
   Crosshair
 } from 'lucide-react';
@@ -50,6 +51,19 @@ export const DetectionView: React.FC<DetectionViewProps> = ({
   const [detectionStatus, setDetectionStatus] = useState<string>(detection.status || 'CONFIRMED');
   const viewportRef = useRef<HTMLDivElement>(null);
   const detectionsList = currentScene.detections || [detection];
+
+  // Anchored on this scene's own detections' real centroids, so each
+  // detection's ellipse lands at its actual position instead of one of
+  // three fixed canvas spots picked by array index.
+  const detectionProjector = useMemo(() => {
+    const points: LatLon[] = detectionsList
+      .map(d => parseCentroidString(d.centroid))
+      .filter((p): p is LatLon => p !== null);
+    if (points.length === 0) {
+      points.push({ lat: currentScene.lat, lon: currentScene.lon });
+    }
+    return projectPoints(points, 1000, 800, 160);
+  }, [detectionsList, currentScene]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.target instanceof SVGElement || e.target instanceof HTMLImageElement || (e.target as HTMLElement).id === 'radar-viewport-container') {
@@ -161,10 +175,12 @@ export const DetectionView: React.FC<DetectionViewProps> = ({
               <line x1="440" y1="40" x2="440" y2="640" strokeDasharray="4 4" />
               <line x1="140" y1="340" x2="740" y2="340" strokeDasharray="4 4" />
             </g>
-            {detectionsList.map((anom, idx) => {
+            {detectionsList.map((anom) => {
               const isSelected = anom.id === detection.id;
-              const cx = idx === 0 ? 440 : idx === 1 ? 580 : 310;
-              const cy = idx === 0 ? 340 : idx === 1 ? 260 : 480;
+              const parsedCentroid = parseCentroidString(anom.centroid);
+              const { x: cx, y: cy } = parsedCentroid
+                ? detectionProjector(parsedCentroid)
+                : { x: 440, y: 340 };
               const rx = Math.max(anom.majorAxisKm * 10, 35);
               const ry = Math.max(anom.minorAxisKm * 14, 18);
               const rot = anom.bearingDeg;

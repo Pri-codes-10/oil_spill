@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { CorridorResponse, GisLayers, MorphologicalProperties, SceneMetadata, Suspect } from '../../types';
 import { DetectionResponse } from '../../api/api';
-import { LatLon, projectPoints } from '../../utils/geoProjection';
+import { LatLon, parseCentroidString, projectPoints } from '../../utils/geoProjection';
 import {
   Layers,
   Crosshair,
@@ -14,20 +14,6 @@ import {
   EyeOff
 } from 'lucide-react';
 import { MarineTrafficMap } from '../MarineTrafficMap';
-
-// Detection centroids are stored as display strings, e.g. "58.3421°N, 2.1190°E"
-// or "9.1420°N, 79.7210°W" (see IngestView's real-backend assignment and
-// data.ts's demo fixtures) — parse back to signed decimal degrees.
-function parseCentroidString(centroid: string): { lat: number; lon: number } | null {
-  const match = centroid.match(/(-?\d+\.?\d*)\s*°?\s*([NS])\s*,\s*(-?\d+\.?\d*)\s*°?\s*([EW])/i);
-  if (!match) return null;
-  const [, latStr, latDir, lonStr, lonDir] = match;
-  let lat = parseFloat(latStr);
-  let lon = parseFloat(lonStr);
-  if (latDir.toUpperCase() === 'S') lat = -lat;
-  if (lonDir.toUpperCase() === 'W') lon = -lon;
-  return { lat, lon };
-}
 
 interface MapViewProps {
   currentScene: SceneMetadata;
