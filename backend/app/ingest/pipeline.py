@@ -131,3 +131,27 @@ def _find_measurement_tiff(scene_path, pol):
     scene_path = Path(scene_path)
     hits = list(scene_path.glob(f"measurement/*-{pol}-*.tiff"))
     return hits[0] if hits else None
+
+#frontend-facing wrapper for detect_scene() that returns a JSON-serializable dict
+
+def detect_scene_for_frontend(scene_path):
+    """
+    Run detection and return a JSON-serializable response.
+
+    The frontend/API layer can call this function instead of
+    directly dealing with the internal B1 processing objects.
+
+    Example:
+
+        result = detect_scene_for_frontend(
+            "path/to/product.SAFE"
+        )
+    """
+
+    result = detect_scene(scene_path)
+
+    return {
+        "success": True,
+        "data": result,
+    }
+
