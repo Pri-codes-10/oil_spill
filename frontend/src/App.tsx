@@ -153,6 +153,7 @@ export default function App() {
               currentScene={currentScene}
               detection={detection}
               topSuspect={topSuspect}
+              contract1={contract1}
               onOpenReportPreview={() => setIsReportModalOpen(true)}
             />
           )}
