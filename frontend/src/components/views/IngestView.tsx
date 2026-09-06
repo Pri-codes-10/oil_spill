@@ -118,7 +118,7 @@ export const IngestView: React.FC<IngestViewProps> = ({
       });
     }
 
-    setPipelineStep(2);
+    setPipelineStep(3);
 
   } catch (error) {
     console.error("INGEST ERROR:", error);
@@ -313,7 +313,7 @@ export const IngestView: React.FC<IngestViewProps> = ({
           <div className="grid grid-cols-4 gap-3">
             {pipelineSteps.map(step => {
               const isDone = pipelineStep > step.num;
-              const isRunning = pipelineStep === step.num;
+              const isRunning = isProcessing && pipelineStep === step.num;
               const isPending = pipelineStep < step.num;
               return (
                 <div
