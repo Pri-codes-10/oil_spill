@@ -1,54 +1,116 @@
-import React, { useState } from 'react';
-import { SceneMetadata, VesselSuspect } from '../../types';
-import { SUSPECT_VESSELS } from '../../data';
-import { 
-  Filter, 
-  ChevronRight, 
-  Ship, 
-  X, 
-  AlertTriangle, 
-  ShieldAlert, 
-  Clock, 
-  Compass, 
+import React, { useState, useEffect, useMemo } from 'react';
+import { CorridorResponse, Suspect } from '../../types';
+import { SceneMetadata } from '../../types';
+import { DetectionResponse, rankSuspects } from '../../api/api';
+import { projectPoints } from '../../utils/geoProjection';
+import {
+  ChevronRight,
+  Ship,
+  X,
   ArrowRight,
-  TrendingDown,
-  ShieldCheck,
-  Zap
+  ShieldAlert,
+  Zap,
+  AlertTriangle,
+  Loader2,
+  Activity,
 } from 'lucide-react';
 
 interface SuspectsViewProps {
   currentScene: SceneMetadata;
   onProceedToExport: () => void;
   searchQuery: string;
+  contract1: DetectionResponse | null;
+  corridor: CorridorResponse | null;
+  onGoToIngest: () => void;
 }
+
+const FACTOR_LABELS: { key: keyof Suspect['factors']; label: string }[] = [
+  { key: 'heading_alignment', label: 'Heading Alignment' },
+  { key: 'proximity', label: 'Spatial Proximity' },
+  { key: 'temporal', label: 'Temporal Fit' },
+  { key: 'speed_anomaly', label: 'Speed Anomaly' },
+  { key: 'transponder_gap', label: 'Transponder Gap' },
+];
 
 export const SuspectsView: React.FC<SuspectsViewProps> = ({
   currentScene,
   onProceedToExport,
-  searchQuery
+  searchQuery,
+  contract1,
+  corridor,
+  onGoToIngest
 }) => {
-  const [selectedSuspect, setSelectedSuspect] = useState<VesselSuspect>(SUSPECT_VESSELS[0]);
-  const [filterStage, setFilterStage] = useState<'all' | 'time' | 'box' | 'scored'>('scored');
+  const [suspects, setSuspects] = useState<Suspect[]>([]);
+  const [aisSource, setAisSource] = useState<string | null>(null);
+  const [selectedSuspect, setSelectedSuspect] = useState<Suspect | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState<boolean>(true);
   const [showMatrixPopover, setShowMatrixPopover] = useState<boolean>(true);
 
-  const filteredVessels = SUSPECT_VESSELS.filter(v => {
+  const fetchSuspects = async (c1: DetectionResponse, c2: CorridorResponse) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const result = await rankSuspects(c2, c1.orientation_deg);
+      setSuspects(result.suspects);
+      setAisSource(result.ais_source);
+      setSelectedSuspect(result.suspects[0] ?? null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to reach the backend.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (contract1 && corridor) {
+      void fetchSuspects(contract1, corridor);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contract1, corridor]);
+
+  const filteredSuspects = suspects.filter(v => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
       v.name.toLowerCase().includes(q) ||
-      v.mmsi.toLowerCase().includes(q) ||
-      v.flag.toLowerCase().includes(q) ||
-      v.type.toLowerCase().includes(q)
+      String(v.mmsi).includes(q)
     );
   });
 
-  const filterOptions = [
-    { id: 'all', label: 'All (2,340)' },
-    { id: 'time', label: 'Time (410)' },
-    { id: 'box', label: 'Box (38)' },
-    { id: 'scored', label: 'Scored (12)' },
-  ] as const;
+  const projector = useMemo(() => {
+    if (!corridor || !contract1) return null;
+    const points = [
+      { lat: contract1.centroid[1], lon: contract1.centroid[0] },
+      ...corridor.corridor.map(n => ({ lat: n.lat, lon: n.lon })),
+    ];
+    return projectPoints(points);
+  }, [corridor, contract1]);
+
+  if (!contract1 || !corridor) {
+    return (
+      <div className="flex-1 flex h-[calc(100vh-72px)] w-full items-center justify-center select-none" style={{ background: 'var(--gov-bg)' }}>
+        <div
+          className="flex flex-col items-center gap-4 p-8 max-w-md text-center"
+          style={{ background: 'var(--gov-surface)', border: '1px solid var(--gov-border)', borderTop: '3px solid var(--gov-navy)', borderRadius: '2px' }}
+        >
+          <Activity className="w-8 h-8" style={{ color: 'var(--gov-saffron)' }} />
+          <h2 className="text-sm font-bold" style={{ color: 'var(--gov-navy)' }}>No Corridor Yet</h2>
+          <p className="text-xs" style={{ color: 'var(--gov-text-secondary)' }}>
+            Run the drift hindcast first to produce a space-time corridor before AIS attribution can run.
+          </p>
+          <button
+            onClick={onGoToIngest}
+            className="px-5 py-2.5 text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer"
+            style={{ background: 'var(--gov-green)', color: '#ffffff', border: 'none', borderRadius: '2px' }}
+          >
+            Go to Drift Analysis
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -69,50 +131,58 @@ export const SuspectsView: React.FC<SuspectsViewProps> = ({
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--gov-navy)' }}>
-              <Filter className="w-3.5 h-3.5" style={{ color: 'var(--gov-saffron)' }} />
-              Attribution Funnel
+              <ShieldAlert className="w-3.5 h-3.5" style={{ color: 'var(--gov-saffron)' }} />
+              Attribution Ranking
             </span>
-            <span className="tag tag-active text-[10px]">Ranked AIS Match</span>
+            <span className="tag tag-active text-[10px]">
+              {isLoading ? 'Scoring...' : `${filteredSuspects.length} Suspects`}
+            </span>
           </div>
-
-          {/* Filter pills */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {filterOptions.map((opt, idx) => (
-              <React.Fragment key={opt.id}>
-                <button
-                  onClick={() => setFilterStage(opt.id)}
-                  className="px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer"
-                  style={{
-                    background: filterStage === opt.id ? 'var(--gov-navy)' : 'var(--gov-surface)',
-                    color: filterStage === opt.id ? '#ffffff' : 'var(--gov-text-secondary)',
-                    border: '1px solid var(--gov-border)',
-                    borderRadius: '2px'
-                  }}
-                >
-                  {opt.label}
-                </button>
-                {idx < filterOptions.length - 1 && (
-                  <ChevronRight className="w-3 h-3" style={{ color: 'var(--gov-border-strong)' }} />
-                )}
-              </React.Fragment>
-            ))}
-          </div>
+          {aisSource && (
+            <span className={`tag text-[10px] w-fit ${aisSource === 'synthetic' ? 'tag-amber' : 'tag-active'}`}>
+              AIS Source: {aisSource}
+            </span>
+          )}
         </div>
+
+        {/* Loading / error */}
+        {isLoading && (
+          <div className="flex items-center gap-2.5 p-4 text-xs" style={{ color: 'var(--gov-text-secondary)' }}>
+            <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--gov-navy)' }} />
+            Scoring AIS traffic against the corridor...
+          </div>
+        )}
+        {error && !isLoading && (
+          <div className="flex items-start gap-2.5 p-4" style={{ background: 'var(--gov-warning-bg)', borderBottom: '1px solid var(--gov-saffron)' }}>
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'var(--gov-saffron-dim)' }} />
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs" style={{ color: 'var(--gov-text-primary)' }}>{error}</span>
+              <button
+                onClick={() => contract1 && corridor && fetchSuspects(contract1, corridor)}
+                className="w-fit px-2 py-1 text-[10px] font-semibold uppercase cursor-pointer"
+                style={{ background: 'var(--gov-navy)', color: '#ffffff', borderRadius: '2px' }}
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Vessel list */}
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
-          {filteredVessels.map((vessel) => {
-            const isSelected = selectedSuspect.id === vessel.id;
-            const scoreColor = vessel.score >= 80
+          {filteredSuspects.map((vessel) => {
+            const isSelected = selectedSuspect?.mmsi === vessel.mmsi;
+            const scorePct = Math.round(vessel.score * 100);
+            const scoreColor = scorePct >= 80
               ? 'var(--gov-green)'
-              : vessel.score >= 60
+              : scorePct >= 60
                 ? 'var(--gov-saffron-dim)'
                 : 'var(--gov-text-muted)';
 
             return (
               <div
-                key={vessel.id}
-                id={`vessel-card-${vessel.id}`}
+                key={vessel.mmsi}
+                id={`vessel-card-${vessel.mmsi}`}
                 onClick={() => { setSelectedSuspect(vessel); setIsProfileOpen(true); }}
                 className="p-3.5 cursor-pointer transition-colors"
                 style={{
@@ -146,25 +216,31 @@ export const SuspectsView: React.FC<SuspectsViewProps> = ({
                 </div>
 
                 <div className="flex gap-4 text-[10px] font-semibold uppercase mb-2.5" style={{ color: 'var(--gov-text-muted)' }}>
-                  <span>FLAG: {vessel.flag}</span>
-                  <span>TYPE: {vessel.type}</span>
+                  <span>FITS: T-{vessel.fits_hours_ago}h</span>
+                  <span>DIST: {vessel.distance_km.toFixed(1)}km</span>
                 </div>
 
                 {/* Score bar */}
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-xs font-bold w-8 text-right" style={{ color: scoreColor }}>
-                    {vessel.score}%
+                    {scorePct}%
                   </span>
                   <div className="flex-1 h-2 rounded-sm overflow-hidden" style={{ background: 'var(--gov-border)' }}>
                     <div
                       className="h-full transition-all duration-300"
-                      style={{ width: `${vessel.score}%`, background: scoreColor, borderRadius: '1px' }}
+                      style={{ width: `${scorePct}%`, background: scoreColor, borderRadius: '1px' }}
                     />
                   </div>
                 </div>
               </div>
             );
           })}
+
+          {!isLoading && !error && filteredSuspects.length === 0 && (
+            <div className="p-6 text-center text-xs" style={{ color: 'var(--gov-text-muted)' }}>
+              No suspects matched the search query.
+            </div>
+          )}
         </div>
 
         {/* Export action */}
@@ -205,32 +281,51 @@ export const SuspectsView: React.FC<SuspectsViewProps> = ({
             }}
           />
 
-          {/* SVG vessel tracks */}
-          <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 1000 800" preserveAspectRatio="none">
-            <path d="M 100 300 Q 200 250 300 400 T 500 350" fill="none" stroke="#9CA3AF" strokeDasharray="4 4" strokeWidth="1.5" opacity="0.6" />
-            <path d="M 180 180 Q 320 280 480 340 T 780 460" fill="none" stroke="#9CA3AF" strokeDasharray="4 4" strokeWidth="1.5" opacity="0.6" />
+          {/* SVG corridor + selected suspect marker — real geometry only */}
+          {projector && (
+            <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 1000 800" preserveAspectRatio="none">
+              {(() => {
+                const origin = projector({ lat: contract1.centroid[1], lon: contract1.centroid[0] });
+                const nodePoints = corridor.corridor.map(n => projector({ lat: n.lat, lon: n.lon }));
+                const pathD = [origin, ...nodePoints]
+                  .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
+                  .join(' ');
 
-            {/* Slick origin */}
-            <ellipse cx="510" cy="400" rx="35" ry="18" fill="var(--gov-navy-light)" stroke="var(--gov-navy)" strokeWidth="1.5" strokeDasharray="3 3" />
-            <circle cx="510" cy="400" r="3" fill="var(--gov-navy)" />
-            <text x="525" y="405" fill="var(--gov-navy)" fontFamily="IBM Plex Mono" fontSize="11" fontWeight="600">ESTIMATED ORIGIN</text>
+                return (
+                  <g>
+                    <path d={pathD} fill="none" stroke="var(--gov-navy)" strokeDasharray="4 4" strokeWidth="2" opacity="0.7" />
 
-            {/* Active vessel track */}
-            <path d="M 250 150 Q 400 300 510 400 T 800 450" fill="none" stroke="var(--gov-navy)" strokeWidth="3.5" className="map-glow" />
-            <circle cx="250" cy="150" r="3.5" fill="var(--gov-navy)" />
-            <circle cx="400" cy="300" r="3.5" fill="var(--gov-navy)" />
-            <circle cx="510" cy="400" r="5" fill="var(--gov-saffron)" stroke="#ffffff" strokeWidth="1.5" />
-            <circle cx="650" cy="425" r="3.5" fill="var(--gov-navy)" />
-            <circle cx="800" cy="450" r="6" fill="var(--gov-green)" className="animate-ping" />
-            <circle cx="800" cy="450" r="5" fill="var(--gov-green)" />
-            <circle cx="800" cy="450" r="14" fill="none" stroke="var(--gov-green)" strokeWidth="1.5" opacity="0.6" />
-            <text x="818" y="455" fill="var(--gov-green)" fontFamily="IBM Plex Mono" fontSize="12" fontWeight="700">
-              {selectedSuspect.name} (LIVE FIX)
-            </text>
-          </svg>
+                    {/* Slick origin */}
+                    <ellipse cx={origin.x} cy={origin.y} rx="35" ry="18" fill="var(--gov-navy-light)" stroke="var(--gov-navy)" strokeWidth="1.5" strokeDasharray="3 3" />
+                    <circle cx={origin.x} cy={origin.y} r="3" fill="var(--gov-navy)" />
+                    <text x={origin.x + 15} y={origin.y + 5} fill="var(--gov-navy)" fontFamily="IBM Plex Mono" fontSize="11" fontWeight="600">ESTIMATED ORIGIN (t=0)</text>
+
+                    {/* Corridor nodes */}
+                    {corridor.corridor.map((node, idx) => {
+                      const p = nodePoints[idx];
+                      const isMatched = selectedSuspect?.fits_hours_ago === node.hours_ago;
+                      return (
+                        <g key={node.hours_ago}>
+                          <circle cx={p.x} cy={p.y} r="3.5" fill={isMatched ? 'var(--gov-saffron)' : 'var(--gov-text-muted)'} />
+                          {isMatched && (
+                            <>
+                              <circle cx={p.x} cy={p.y} r="14" fill="none" stroke="var(--gov-saffron)" strokeWidth="1.5" opacity="0.6" />
+                              <text x={p.x + 12} y={p.y - 8} fill="var(--gov-saffron)" fontFamily="IBM Plex Mono" fontSize="12" fontWeight="700">
+                                {selectedSuspect.name} (T-{node.hours_ago}h)
+                              </text>
+                            </>
+                          )}
+                        </g>
+                      );
+                    })}
+                  </g>
+                );
+              })()}
+            </svg>
+          )}
 
           {/* Attribution Matrix Card */}
-          {showMatrixPopover && (
+          {showMatrixPopover && selectedSuspect && (
             <div
               id="attribution-matrix-popover"
               className="absolute top-4 right-4 w-80 p-4 z-30 shadow-lg"
@@ -250,47 +345,35 @@ export const SuspectsView: React.FC<SuspectsViewProps> = ({
                   Attribution Matrix
                 </span>
                 <span className="tag tag-active text-xs font-bold font-mono">
-                  {selectedSuspect.score}% Match
+                  {Math.round(selectedSuspect.score * 100)}% Match
                 </span>
               </div>
 
               <div className="space-y-3">
-                {[
-                  { label: 'Spatial Proximity', value: selectedSuspect.proximityScore, color: 'var(--gov-navy)' },
-                  { label: 'Course & Heading Match', value: selectedSuspect.headingMatchScore, color: 'var(--gov-navy)' },
-                  { label: 'Temporal Window Sync', value: selectedSuspect.timingScore, color: 'var(--gov-navy)' },
-                  { label: 'Speed Profile Delta', value: selectedSuspect.speedProfileScore, color: 'var(--gov-saffron-dim)' },
-                ].map(row => (
-                  <div key={row.label}>
-                    <div className="flex justify-between font-mono text-xs mb-1" style={{ color: 'var(--gov-text-secondary)' }}>
-                      <span>{row.label}</span>
-                      <span className="font-semibold" style={{ color: row.color }}>{row.value}%</span>
+                {FACTOR_LABELS.map(({ key, label }) => {
+                  const value = Math.round(selectedSuspect.factors[key] * 100);
+                  return (
+                    <div key={key}>
+                      <div className="flex justify-between font-mono text-xs mb-1" style={{ color: 'var(--gov-text-secondary)' }}>
+                        <span>{label}</span>
+                        <span className="font-semibold" style={{ color: 'var(--gov-navy)' }}>{value}%</span>
+                      </div>
+                      <div className="w-full h-1.5 rounded-sm overflow-hidden" style={{ background: 'var(--gov-border)' }}>
+                        <div className="h-full" style={{ width: `${value}%`, background: 'var(--gov-navy)', borderRadius: '1px' }} />
+                      </div>
                     </div>
-                    <div className="w-full h-1.5 rounded-sm overflow-hidden" style={{ background: 'var(--gov-border)' }}>
-                      <div className="h-full" style={{ width: `${row.value}%`, background: row.color, borderRadius: '1px' }} />
-                    </div>
-                  </div>
-                ))}
-
-                <div
-                  className="pt-2 flex justify-between items-center"
-                  style={{ borderTop: '1px solid var(--gov-border)' }}
-                >
-                  <span className="text-[10px] font-semibold uppercase" style={{ color: 'var(--gov-text-muted)' }}>AIS Integrity</span>
-                  <span className={`tag ${selectedSuspect.aisStatus === 'NO GAP' ? 'tag-active' : 'tag-amber'} text-[10px]`}>
-                    {selectedSuspect.aisStatus}
-                  </span>
-                </div>
+                  );
+                })}
               </div>
             </div>
           )}
         </div>
 
         {/* Bottom Vessel Profile Drawer */}
-        {isProfileOpen && (
+        {isProfileOpen && selectedSuspect && (
           <div
             id="vessel-profile-drawer"
-            className="h-60 shrink-0 flex flex-col z-30 shadow-lg"
+            className="h-52 shrink-0 flex flex-col z-30 shadow-lg"
             style={{ background: 'var(--gov-surface)', borderTop: '3px solid var(--gov-navy)' }}
           >
             {/* Drawer header */}
@@ -304,12 +387,12 @@ export const SuspectsView: React.FC<SuspectsViewProps> = ({
                   Vessel Profile: {selectedSuspect.name}
                 </span>
                 <span className="font-mono text-xs font-medium" style={{ color: 'var(--gov-navy)' }}>
-                  (IMO: {selectedSuspect.details.imo} | Callsign: {selectedSuspect.details.callsign})
+                  MMSI: {selectedSuspect.mmsi}
                 </span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs hidden md:inline font-mono" style={{ color: 'var(--gov-text-muted)' }}>
-                  Dest: {selectedSuspect.details.destination}
+                  Matched: {new Date(selectedSuspect.matched_at).toISOString().slice(0, 19).replace('T', ' ')} UTC
                 </span>
                 <button
                   onClick={() => setIsProfileOpen(false)}
@@ -321,98 +404,38 @@ export const SuspectsView: React.FC<SuspectsViewProps> = ({
               </div>
             </div>
 
-            {/* Drawer content */}
-            <div className="flex-1 flex flex-col md:flex-row p-3 gap-3 overflow-hidden">
-
-              {/* Speed Chart */}
+            {/* Drawer content — real explainability: evidence sentence + factor bars */}
+            <div className="flex-1 flex flex-col md:flex-row p-4 gap-4 overflow-hidden">
               <div
-                className="flex-1 flex flex-col h-full p-3"
+                className="flex-1 flex flex-col justify-center p-4"
                 style={{ border: '1px solid var(--gov-border)', borderRadius: '2px', background: 'var(--gov-surface-alt)' }}
               >
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--gov-text-secondary)' }}>
-                    Speed Profile (Knots / 24h)
-                  </span>
-                  <span className="font-mono text-[10px] flex items-center gap-1 font-semibold" style={{ color: 'var(--gov-saffron-dim)' }}>
-                    <TrendingDown className="w-3 h-3" /> Anomaly at T-14h
-                  </span>
-                </div>
-
-                <div className="flex-1 relative flex items-end justify-between px-4 pb-2" style={{ borderBottom: '1px solid var(--gov-border)', borderLeft: '1px solid var(--gov-border)' }}>
-                  <div className="absolute left-1 top-0 bottom-2 flex flex-col justify-between font-mono text-[8px]" style={{ color: 'var(--gov-text-muted)' }}>
-                    <span>20kt</span><span>10kt</span><span>0kt</span>
-                  </div>
-                  {selectedSuspect.speedHistory.map((item, idx) => (
-                    <div key={idx} className="flex flex-col items-center gap-1 group relative">
-                      <div
-                        className="absolute -top-7 opacity-0 group-hover:opacity-100 px-2 py-0.5 font-mono text-[10px] whitespace-nowrap pointer-events-none z-20 shadow"
-                        style={{
-                          background: 'var(--gov-surface)',
-                          border: '1px solid var(--gov-border)',
-                          color: 'var(--gov-text-primary)',
-                          borderRadius: '2px'
-                        }}
-                      >
-                        {item.time}: {item.knots} kt
-                      </div>
-                      <div
-                        className="w-4 rounded-t-sm transition-all"
-                        style={{
-                          height: `${(item.knots / 20) * 100}%`,
-                          background: item.isAnomaly ? 'var(--gov-saffron)' : 'var(--gov-navy)',
-                          opacity: item.isAnomaly ? 1 : 0.5
-                        }}
-                      />
-                      <span className="font-mono text-[9px]" style={{ color: 'var(--gov-text-muted)' }}>{item.time}</span>
-                    </div>
-                  ))}
-                </div>
+                <span className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--gov-text-secondary)' }}>
+                  Forensic Evidence
+                </span>
+                <p className="text-sm font-medium leading-relaxed" style={{ color: 'var(--gov-text-primary)' }}>
+                  {selectedSuspect.evidence}
+                </p>
+                <p className="text-xs mt-2" style={{ color: 'var(--gov-text-muted)' }}>
+                  Weighted score is a shortlisting aid for human review, not a verdict — each factor stays separately visible above.
+                </p>
               </div>
 
-              {/* AIS Ping Timeline */}
               <div
-                className="flex-1 flex flex-col h-full p-3"
+                className="flex-1 flex flex-col p-4 gap-2"
                 style={{ border: '1px solid var(--gov-border)', borderRadius: '2px', background: 'var(--gov-surface-alt)' }}
               >
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--gov-text-secondary)' }}>
-                    AIS Transmission Continuity
-                  </span>
-                  <span className="font-mono text-[10px] font-semibold" style={{ color: 'var(--gov-navy)' }}>Fix Count: 24</span>
-                </div>
-
-                <div className="flex-1 relative flex items-center px-4">
-                  <div className="absolute left-4 right-4 h-[1px] top-1/2 -translate-y-1/2" style={{ background: 'var(--gov-border)' }} />
-                  <div className="w-full flex justify-between relative z-10">
-                    {selectedSuspect.pings.map((ping, idx) => (
-                      <div key={idx} className="flex flex-col items-center gap-1 group relative">
-                        <div
-                          className="w-3.5 h-3.5 rotate-45 border transition-all"
-                          style={{
-                            background: ping.isGap
-                              ? 'var(--gov-error-bg)'
-                              : ping.time === 'NOW'
-                                ? 'var(--gov-green)'
-                                : 'var(--gov-navy)',
-                            borderColor: ping.isGap
-                              ? 'var(--gov-error)'
-                              : ping.time === 'NOW'
-                                ? 'var(--gov-green)'
-                                : 'var(--gov-navy)',
-                            opacity: ping.isGap ? 1 : ping.time === 'NOW' ? 1 : 0.6,
-                            transform: ping.time === 'NOW' ? 'rotate(45deg) scale(1.2)' : 'rotate(45deg)'
-                          }}
-                        />
-                        <span className="font-mono text-[8px] mt-1" style={{ color: 'var(--gov-text-muted)' }}>{ping.time}</span>
-                      </div>
-                    ))}
+                <span className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--gov-text-secondary)' }}>
+                  Factor Breakdown (Weighted)
+                </span>
+                {FACTOR_LABELS.map(({ key, label }) => (
+                  <div key={key} className="flex justify-between font-mono text-[11px]" style={{ color: 'var(--gov-text-secondary)' }}>
+                    <span>{label}</span>
+                    <span className="font-semibold" style={{ color: 'var(--gov-navy)' }}>
+                      {Math.round(selectedSuspect.factors[key] * 100)}% × {selectedSuspect.weights[key]}
+                    </span>
                   </div>
-                </div>
-
-                <div className="flex justify-between px-2 font-mono text-[9px]" style={{ color: 'var(--gov-text-muted)' }}>
-                  <span>T-24h (Telemetry Start)</span>
-                  <span>NOW (Active Fix)</span>
-                </div>
+                ))}
               </div>
             </div>
           </div>

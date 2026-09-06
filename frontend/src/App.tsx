@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ActiveTab, GisLayers, MorphologicalProperties, OperationNotification, SceneMetadata } from './types';
+import { ActiveTab, CorridorResponse, GisLayers, MorphologicalProperties, OperationNotification, SceneMetadata } from './types';
 import { DEFAULT_DETECTION, DEMO_SCENES, INITIAL_GIS_LAYERS, INITIAL_NOTIFICATIONS, SUSPECT_VESSELS } from './data';
 import { TopAppBar } from './components/TopAppBar';
 import { SideNavBar } from './components/SideNavBar';
@@ -12,7 +12,7 @@ import { ExportView } from './components/views/ExportView';
 import { ReportPreviewModal } from './components/modals/ReportPreviewModal';
 import { HelpModal } from './components/modals/HelpModal';
 import { OperatorModal } from './components/modals/OperatorModal';
-import { getMockDetection } from "./api/api";
+import { DetectionResponse, getMockDetection } from "./api/api";
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('map');
   const [currentScene, setCurrentScene] = useState<SceneMetadata>(DEMO_SCENES[0]);
@@ -20,6 +20,8 @@ export default function App() {
   const [gisLayers, setGisLayers] = useState<GisLayers>(INITIAL_GIS_LAYERS);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [notifications, setNotifications] = useState<OperationNotification[]>(INITIAL_NOTIFICATIONS);
+  const [contract1, setContract1] = useState<DetectionResponse | null>(null);
+  const [corridor, setCorridor] = useState<CorridorResponse | null>(null);
 
   // Theme state: default to localStorage or system preference
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -92,10 +94,11 @@ export default function App() {
         {/* Dynamic View Canvas Area (Below Top App Bar) */}
         <main className="flex-1 w-full h-[calc(100vh-72px)] mt-[72px] overflow-hidden relative">
           {activeTab === 'ingest' && (
-            <IngestView 
+            <IngestView
               currentScene={currentScene}
               setCurrentScene={handleSceneChange}
               onContinueToMap={() => setActiveTab('map')}
+              onContract1={setContract1}
             />
           )}
 
@@ -123,17 +126,23 @@ export default function App() {
           )}
 
           {activeTab === 'drift' && (
-            <DriftView 
+            <DriftView
               currentScene={currentScene}
+              contract1={contract1}
+              onCorridorReady={setCorridor}
               onProceedToSuspects={() => setActiveTab('suspects')}
+              onGoToIngest={() => setActiveTab('ingest')}
             />
           )}
 
           {activeTab === 'suspects' && (
-            <SuspectsView 
+            <SuspectsView
               currentScene={currentScene}
               searchQuery={searchQuery}
+              contract1={contract1}
+              corridor={corridor}
               onProceedToExport={() => setActiveTab('export')}
+              onGoToIngest={() => setActiveTab('drift')}
             />
           )}
 

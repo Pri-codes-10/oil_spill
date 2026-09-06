@@ -99,3 +99,42 @@ export interface OperationNotification {
   type: 'alert' | 'info' | 'success';
   unread: boolean;
 }
+
+export interface CorridorNode {
+  hours_ago: number;
+  lat: number;
+  lon: number;
+  radius_km: number;
+}
+
+export interface CorridorResponse {
+  observed_at: string;
+  corridor: CorridorNode[];
+  field_source: 'analytic' | 'cmems_era5';
+}
+
+export interface SuspectFactors {
+  heading_alignment: number;
+  proximity: number;
+  temporal: number;
+  speed_anomaly: number;
+  transponder_gap: number;
+}
+
+export interface Suspect {
+  mmsi: number;
+  name: string;
+  score: number;
+  factors: SuspectFactors;
+  weights: SuspectFactors;
+  fits_hours_ago: number;
+  distance_km: number;
+  matched_at: string;
+  evidence: string;
+  rank: number;
+}
+
+export interface AttributionResponse {
+  ais_source: string;
+  suspects: Suspect[];
+}

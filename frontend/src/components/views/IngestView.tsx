@@ -17,6 +17,7 @@ interface IngestViewProps {
   currentScene: SceneMetadata;
   setCurrentScene: (scene: SceneMetadata) => void;
   onContinueToMap: () => void;
+  onContract1: (contract1: DetectionResponse) => void;
 }
 import {
   detectScene,
@@ -27,7 +28,8 @@ import {
 export const IngestView: React.FC<IngestViewProps> = ({
   currentScene,
   setCurrentScene,
-  onContinueToMap
+  onContinueToMap,
+  onContract1
 }) => {
   const [pipelineStep, setPipelineStep] = useState<number>(1);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -95,6 +97,7 @@ export const IngestView: React.FC<IngestViewProps> = ({
     console.log("INGEST BACKEND RESULT:", result);
 
     setContract1(result);
+    onContract1(result);
 
     const existingDetection = scene.detections?.[0];
 

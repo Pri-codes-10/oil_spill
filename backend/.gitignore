@@ -20,6 +20,10 @@ data/
 __pycache__/
 .env
 
+# Local debug contract1 fixtures (ad-hoc test outputs, not the verified fixture)
+mocks/real_contract1.json
+mocks/real_contract1_aug15.json
+
 # standard python noise
 *.pyc
 .venv/
