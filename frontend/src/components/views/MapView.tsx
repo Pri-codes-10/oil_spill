@@ -285,7 +285,7 @@ export const MapView: React.FC<MapViewProps> = ({
 
             {/* Predicted mask with opacity slider */}
             <div style={{ border: '1px solid var(--gov-navy)', borderRadius: '2px', background: 'var(--gov-navy-light)' }}>
-              <LayerRow label="Predicted Mask (AI)" checked={gisLayers.predictedMask} onChange={v => setGisLayers({ ...gisLayers, predictedMask: v })} colorDot="#000080" />
+              <LayerRow label="Predicted Mask (Detector)" checked={gisLayers.predictedMask} onChange={v => setGisLayers({ ...gisLayers, predictedMask: v })} colorDot="#000080" />
               {gisLayers.predictedMask && (
                 <div className="pl-9 pr-3 pb-2 flex items-center gap-2">
                   <span className="text-[10px] font-semibold uppercase tracking-wider w-14" style={{ color: 'var(--gov-navy)' }}>Opacity</span>

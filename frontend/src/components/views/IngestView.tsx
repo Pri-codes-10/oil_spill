@@ -175,7 +175,7 @@ export const IngestView: React.FC<IngestViewProps> = ({
             </h1>
             <p className="text-sm font-medium" style={{ color: 'var(--gov-text-secondary)' }}>
               Upload synthetic aperture radar products or select preloaded benchmark oceanic scenes for
-              neural slick detection, hindcast particle modelling, and AIS target attribution.
+              classical dark-formation slick detection, hindcast particle modelling, and AIS target attribution.
             </p>
           </div>
         </div>

@@ -310,7 +310,7 @@ export const DetectionView: React.FC<DetectionViewProps> = ({
             <div className="flex flex-wrap items-center gap-2 mt-2">
               <span className={`tag ${detection.confidence >= 80 ? 'tag-active' : 'tag-amber'}`}>
                 <ShieldCheck className="w-3.5 h-3.5" />
-                {detection.confidence}% AI Confidence
+                {detection.confidence}% Detection Confidence
               </span>
               <span className="tag">{currentScene.satellite}</span>
               <span className="tag font-mono text-[10px]">{detection.slickType}</span>
