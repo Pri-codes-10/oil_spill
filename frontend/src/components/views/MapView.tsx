@@ -1,19 +1,22 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { CorridorResponse, GisLayers, MorphologicalProperties, SceneMetadata, Suspect } from '../../types';
 import { DetectionResponse } from '../../api/api';
-import { LatLon, parseCentroidString, projectPoints } from '../../utils/geoProjection';
 import {
   Layers,
   Crosshair,
   Sliders,
-  ZoomIn,
-  ZoomOut,
-  RotateCcw,
   ExternalLink,
   Eye,
-  EyeOff
+  Activity,
+  CheckCircle2,
+  AlertTriangle,
+  Compass,
+  MapPin,
+  Ship,
+  X
 } from 'lucide-react';
 import { MarineTrafficMap } from '../MarineTrafficMap';
+import { CoordinateOverlay } from '../CoordinateOverlay';
 
 interface MapViewProps {
   currentScene: SceneMetadata;
@@ -26,6 +29,18 @@ interface MapViewProps {
   onSelectDetection?: (detection?: MorphologicalProperties) => void;
 }
 
+// Coordinate validation: -90 <= lat <= 90, -180 <= lon <= 180
+export function isValidCoordinate(lat: any, lon: any): boolean {
+  if (lat === null || lat === undefined || lon === null || lon === undefined) return false;
+  const numLat = typeof lat === 'number' ? lat : parseFloat(lat);
+  const numLon = typeof lon === 'number' ? lon : parseFloat(lon);
+  if (isNaN(numLat) || isNaN(numLon)) return false;
+  if (!isFinite(numLat) || !isFinite(numLon)) return false;
+  if (numLat < -90 || numLat > 90) return false;
+  if (numLon < -180 || numLon > 180) return false;
+  return true;
+}
+
 export const MapView: React.FC<MapViewProps> = ({
   currentScene,
   activeDetection,
@@ -36,97 +51,95 @@ export const MapView: React.FC<MapViewProps> = ({
   topSuspect,
   onSelectDetection
 }) => {
-  const [zoomLevel, setZoomLevel] = useState<number>(1);
-  const [panPosition, setPanPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isLayersPanelCollapsed, setIsLayersPanelCollapsed] = useState<boolean>(false);
-  const [cursorCoords, setCursorCoords] = useState<{ lat: string; lon: string }>({
-    lat: '58.3421°N',
-    lon: '2.1190°E'
-  });
-  const [hoveredSlick, setHoveredSlick] = useState<boolean>(false);
+  const [isOverlayPanelOpen, setIsOverlayPanelOpen] = useState<boolean>(true);
+  const [noAnomalyModalOpen, setNoAnomalyModalOpen] = useState<boolean>(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Real-geometry projector — same pattern as DriftView/SuspectsView. Only
-  // available once a corridor has actually been fetched (Drift stage run).
-  const projector = useMemo(() => {
-    if (!corridor || !contract1) return null;
-    const points = [
-      { lat: contract1.centroid[1], lon: contract1.centroid[0] },
-      ...corridor.corridor.map(n => ({ lat: n.lat, lon: n.lon })),
-    ];
-    return projectPoints(points);
-  }, [corridor, contract1]);
+  // Contract 1 coordinate extraction: contract1.centroid = [longitude, latitude]
+  const c1Coords = useMemo(() => {
+    if (!contract1 || !Array.isArray(contract1.centroid) || contract1.centroid.length < 2) {
+      return null;
+    }
+    const rawLongitude = contract1.centroid[0];
+    const rawLatitude = contract1.centroid[1];
+    const rawStr = `[${rawLongitude}, ${rawLatitude}]`;
 
-  // Oldest corridor node = furthest-back estimated origin, with its own
-  // uncertainty radius — the real equivalent of "Origin Ellipse".
-  const oldestNode = useMemo(() => {
-    if (!corridor) return null;
-    return corridor.corridor.reduce((oldest, n) =>
-      n.hours_ago > oldest.hours_ago ? n : oldest, corridor.corridor[0]);
+    const longitude = Number(rawLongitude);
+    const latitude = Number(rawLatitude);
+
+    const valid = isValidCoordinate(latitude, longitude);
+
+    return {
+      raw: rawStr,
+      longitude,
+      latitude,
+      valid,
+      formatted: valid
+        ? `${Math.abs(latitude).toFixed(6)}°${latitude >= 0 ? 'N' : 'S'}, ${Math.abs(longitude).toFixed(6)}°${longitude >= 0 ? 'E' : 'W'}`
+        : 'INVALID COORDINATE'
+    };
+  }, [contract1]);
+
+  // Contract 2 coordinate extraction: corridor node = { lat: number, lon: number }
+  const c2Nodes = useMemo(() => {
+    if (!corridor || !Array.isArray(corridor.corridor)) return [];
+    return corridor.corridor.map((node, idx) => {
+      const latitude = Number(node.lat);
+      const longitude = Number(node.lon);
+      const valid = isValidCoordinate(latitude, longitude);
+      return {
+        idx: idx + 1,
+        hours_ago: node.hours_ago,
+        radius_km: node.radius_km,
+        latitude,
+        longitude,
+        valid,
+        raw: `{ lat: ${node.lat}, lon: ${node.lon} }`,
+        formatted: valid
+          ? `${Math.abs(latitude).toFixed(6)}°${latitude >= 0 ? 'N' : 'S'}, ${Math.abs(longitude).toFixed(6)}°${longitude >= 0 ? 'E' : 'W'}`
+          : 'INVALID COORDINATE'
+      };
+    });
   }, [corridor]);
-  const maxRadiusKm = useMemo(() => {
-    if (!corridor) return 1;
-    return Math.max(...corridor.corridor.map(n => n.radius_km));
-  }, [corridor]);
 
-  // Detection-mask projector — independent of the drift corridor (available
-  // as soon as a scene has detections, even before Drift has run). Anchored
-  // on the scene's own detections' real centroids, falling back to the
-  // scene's nominal lat/lon so a lone detection still gets a sane bounding box.
-  const detectionProjector = useMemo(() => {
-    const points: LatLon[] = (currentScene.detections || [])
-      .map(d => parseCentroidString(d.centroid))
-      .filter((p): p is LatLon => p !== null);
-    if (points.length === 0) {
-      points.push({ lat: currentScene.lat, lon: currentScene.lon });
-    }
-    return projectPoints(points);
-  }, [currentScene]);
+  // AIS / Suspect vessel extraction
+  const suspectCoord = useMemo(() => {
+    if (!topSuspect || !corridor) return null;
+    const matchedNode = corridor.corridor.find(n => n.hours_ago === topSuspect.fits_hours_ago);
+    if (!matchedNode) return null;
+    const latitude = Number(matchedNode.lat);
+    const longitude = Number(matchedNode.lon);
+    const valid = isValidCoordinate(latitude, longitude);
+    return {
+      name: topSuspect.name,
+      mmsi: topSuspect.mmsi,
+      fits_hours_ago: topSuspect.fits_hours_ago,
+      matched_at: topSuspect.matched_at,
+      latitude,
+      longitude,
+      valid,
+      formatted: valid
+        ? `${Math.abs(latitude).toFixed(6)}°${latitude >= 0 ? 'N' : 'S'}, ${Math.abs(longitude).toFixed(6)}°${longitude >= 0 ? 'E' : 'W'}`
+        : 'INVALID COORDINATE'
+    };
+  }, [topSuspect, corridor]);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.target instanceof SVGElement || e.target instanceof HTMLImageElement || (e.target as HTMLElement).id === 'map-canvas-container') {
-      setIsDragging(true);
-      setDragStart({ x: e.clientX - panPosition.x, y: e.clientY - panPosition.y });
-    }
-  };
+  // Center MarineTraffic map on real Contract 1 detection coordinates if available
+  const centerLongitude = c1Coords?.valid ? c1Coords.longitude : 60.2;
+  const centerLatitude = c1Coords?.valid ? c1Coords.latitude : 13.3;
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDragging) {
-      setPanPosition({
-        x: e.clientX - dragStart.x,
-        y: e.clientY - dragStart.y
-      });
-    }
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const xPercent = (e.clientX - rect.left) / rect.width;
-      const yPercent = (e.clientY - rect.top) / rect.height;
-      const baseLat = currentScene.lat;
-      const baseLon = currentScene.lon;
-      const calcLat = (baseLat + (0.5 - yPercent) * 0.4).toFixed(4);
-      const calcLon = (baseLon + (xPercent - 0.5) * 0.4).toFixed(4);
-      setCursorCoords({
-        lat: `${Math.abs(parseFloat(calcLat))}°${parseFloat(calcLat) >= 0 ? 'N' : 'S'}`,
-        lon: `${Math.abs(parseFloat(calcLon))}°${parseFloat(calcLon) >= 0 ? 'E' : 'W'}`
-      });
+  const handleInspectClick = () => {
+    if (contract1 || activeDetection) {
+      if (onSelectDetection) {
+        onSelectDetection(activeDetection || currentScene.detections?.[0]);
+      }
+    } else {
+      setNoAnomalyModalOpen(true);
     }
   };
 
-  const handleMouseUp = () => setIsDragging(false);
-
-  const handleZoom = (delta: number) => {
-    setZoomLevel(prev => Math.min(Math.max(prev + delta, 0.7), 2.5));
-  };
-
-  const resetView = () => {
-    setZoomLevel(1);
-    setPanPosition({ x: 0, y: 0 });
-  };
-
-  /* Helper to build checkbox row for layer panel */
   const LayerRow = ({
     label, checked, onChange, colorDot, icon, disabled, disabledReason
   }: {
@@ -141,7 +154,7 @@ export const MapView: React.FC<MapViewProps> = ({
       <label className={`flex items-center gap-2.5 w-full ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
         <input
           type="checkbox"
-          checked={checked}
+          checked={checked && !disabled}
           disabled={disabled}
           onChange={e => onChange(e.target.checked)}
           className="h-4 w-4 cursor-pointer disabled:cursor-not-allowed"
@@ -162,165 +175,74 @@ export const MapView: React.FC<MapViewProps> = ({
       ref={containerRef}
       className="flex-1 relative w-full h-[calc(100vh-72px)] overflow-hidden select-none bg-[#010f1f]"
     >
-      {/* Map canvas — kept dark (cartographic requirement) */}
-      <div id="map-canvas-container" className="absolute inset-0 w-full h-full">
+      {/* ========================================================================= */}
+      {/* 1. MARINETRAFFIC LIVE AIS MAP CONTAINER                                    */}
+      {/* Full-screen real vessel traffic map                                       */}
+      {/* ========================================================================= */}
+      <div
+        id="marinetraffic-map-section"
+        className={`absolute inset-0 w-full h-full transition-opacity duration-300 z-0 ${
+          gisLayers.marineTraffic !== false ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+      >
         <MarineTrafficMap
-          centerX={60.2}
-          centerY={13.3}
+          centerX={centerLongitude}
+          centerY={centerLatitude}
           zoom={6}
           showOverlays={true}
-          className="absolute inset-0 w-full h-full"
+          className="w-full h-full"
         />
-
-        {/* Subtle grid overlay */}
-        <div
-          className="absolute inset-0 w-full h-full pointer-events-none"
-          style={{
-            backgroundImage: 'radial-gradient(rgba(133,148,144,0.1) 1px, transparent 1px)',
-            backgroundSize: '40px 40px'
-          }}
-        />
-
-        {/* Drift Corridor Path — real backward-hindcast nodes from /api/drift/corridor,
-            same geometry DriftView renders. Only drawn once that stage has run. */}
-        {gisLayers.oceanCurrents && projector && corridor && contract1 && (
-          <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-70" viewBox="0 0 1000 800" preserveAspectRatio="none">
-            {(() => {
-              const origin = projector({ lat: contract1.centroid[1], lon: contract1.centroid[0] });
-              const nodePoints = corridor.corridor.map(n => projector({ lat: n.lat, lon: n.lon }));
-              const pathD = [origin, ...nodePoints]
-                .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
-                .join(' ');
-              return (
-                <g stroke="#ffb95f" strokeWidth="1.5" fill="none" strokeDasharray="3 5">
-                  <path d={pathD} />
-                  {nodePoints.map((p, idx) => (
-                    <circle key={idx} cx={p.x} cy={p.y} r="2.5" fill="#ffb95f" stroke="none" />
-                  ))}
-                </g>
-              );
-            })()}
-          </svg>
-        )}
-
-        {/* Confidence Heatmap */}
-        {gisLayers.confidenceHeatmap && (
-          <div
-            className="absolute left-[44%] top-[40%] w-64 h-48 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none opacity-40 blur-2xl"
-            style={{ background: 'radial-gradient(circle, rgba(239,68,68,0.8) 0%, rgba(245,158,11,0.5) 50%, transparent 80%)' }}
-          />
-        )}
-
-        {/* SVG Layer */}
-        <svg
-          className="absolute inset-0 w-full h-full z-10 pointer-events-none"
-          viewBox="0 0 1000 800"
-          preserveAspectRatio="none"
-        >
-          <defs>
-            <filter id="glow-teal" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="3" result="blur" />
-              <feComposite in="SourceGraphic" in2="blur" operator="over" />
-            </filter>
-            <radialGradient id="slick-fill" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#2dd4bf" stopOpacity={0.35 * (gisLayers.predictedMaskOpacity / 100)} />
-              <stop offset="100%" stopColor="#2dd4bf" stopOpacity={0.15 * (gisLayers.predictedMaskOpacity / 100)} />
-            </radialGradient>
-          </defs>
-
-          {/* Suspect Vessel Position — a single real point for the top-ranked
-              suspect, placed at the corridor node its fits_hours_ago matches
-              (same lookup SuspectsView uses). No fabricated track polyline. */}
-          {gisLayers.aisTracks && topSuspect && corridor && projector && (() => {
-            const node = corridor.corridor.find(n => n.hours_ago === topSuspect.fits_hours_ago);
-            if (!node) return null;
-            const p = projector({ lat: node.lat, lon: node.lon });
-            return (
-              <g>
-                <circle cx={p.x} cy={p.y} r="14" fill="none" stroke="#ffb95f" strokeWidth="1.5" opacity="0.6" />
-                <circle cx={p.x} cy={p.y} r="4" fill="#ffb95f" />
-                <text x={p.x + 12} y={p.y - 10} fill="#ffb95f" fontFamily="IBM Plex Mono" fontSize="11">
-                  {topSuspect.name} (T-{node.hours_ago}h)
-                </text>
-              </g>
-            );
-          })()}
-
-          {/* Origin Estimate — the oldest (furthest-back) real corridor node,
-              radius scaled from its actual radius_km. */}
-          {gisLayers.originEstimate && oldestNode && projector && (() => {
-            const p = projector({ lat: oldestNode.lat, lon: oldestNode.lon });
-            const r = 6 + (oldestNode.radius_km / maxRadiusKm) * 26;
-            return (
-              <g>
-                <circle cx={p.x} cy={p.y} r={r} fill="none" stroke="#ffb4ab" strokeWidth="1.5" strokeDasharray="3 3" />
-                <circle cx={p.x} cy={p.y} r="3" fill="#ffb4ab" />
-                <text x={p.x + 15} y={p.y + 5} fill="#ffb4ab" fontFamily="IBM Plex Mono" fontSize="11">
-                  EST. ORIGIN (T-{oldestNode.hours_ago}h)
-                </text>
-              </g>
-            );
-          })()}
-
-          {gisLayers.predictedMask && (
-            <g id="slick-polygons-layer">
-              {(currentScene.detections || []).map((anom) => {
-                const isSelected = activeDetection?.id === anom.id;
-                const parsedCentroid = parseCentroidString(anom.centroid);
-                const { x: cx, y: cy } = parsedCentroid
-                  ? detectionProjector(parsedCentroid)
-                  : { x: 500, y: 400 };
-                const rx = Math.max(anom.majorAxisKm * 10, 40);
-                const ry = Math.max(anom.minorAxisKm * 15, 20);
-                const rot = anom.bearingDeg;
-                const isLookAlike = anom.status === 'LOOK_ALIKE' || anom.confidence < 50;
-                return (
-                  <g
-                    key={anom.id}
-                    id={`slick-polygon-${anom.id}`}
-                    onClick={() => onSelectDetection && onSelectDetection(anom)}
-                    onMouseEnter={() => setHoveredSlick(true)}
-                    onMouseLeave={() => setHoveredSlick(false)}
-                    className="cursor-pointer group pointer-events-auto"
-                  >
-                    <ellipse
-                      cx={cx} cy={cy} rx={rx} ry={ry}
-                      transform={`rotate(${rot - 90} ${cx} ${cy})`}
-                      fill="url(#slick-fill)"
-                      stroke={isLookAlike ? "#f59e0b" : "#2dd4bf"}
-                      strokeWidth={isSelected || hoveredSlick ? "3" : "1.8"}
-                      strokeDasharray={isLookAlike ? "4 4" : "none"}
-                      filter="url(#glow-teal)"
-                    />
-                    <circle cx={cx} cy={cy} r="4" fill={isLookAlike ? "#f59e0b" : "#2dd4bf"} className="map-glow" />
-                    <circle cx={cx} cy={cy} r="14" fill="none" stroke={isLookAlike ? "#f59e0b" : "#2dd4bf"} strokeWidth="1" opacity="0.6" />
-                    <line x1={cx - 20} y1={cy} x2={cx + 20} y2={cy} stroke={isLookAlike ? "#f59e0b" : "#2dd4bf"} strokeWidth="1.5" />
-                    <line x1={cx} y1={cy - 20} x2={cx} y2={cy + 20} stroke={isLookAlike ? "#f59e0b" : "#2dd4bf"} strokeWidth="1.5" />
-                    <g transform={`translate(${cx + 15}, ${cy - 25})`}>
-                      <rect width="130" height="26" rx="2" fill="#0d1c2d" stroke={isSelected ? "#60a5fa" : (isLookAlike ? "#f59e0b" : "#2dd4bf")} strokeWidth="1.5" opacity="0.95" />
-                      <text x="8" y="17" fill={isLookAlike ? "#fde68a" : "#57f1db"} fontFamily="IBM Plex Mono" fontSize="11" fontWeight="600">
-                        {anom.id} ({anom.confidence}%)
-                      </text>
-                    </g>
-                  </g>
-                );
-              })}
-            </g>
-          )}
-
-          <path d="M510 400 Q400 500 200 550" fill="none" stroke="rgba(255,185,95,0.7)" strokeDasharray="4 4" strokeWidth="1.5" />
-        </svg>
       </div>
 
-      {/* GIS Layers Panel — white/government style */}
+      {/* Fallback canvas shown if user unchecks MarineTraffic Live AIS */}
+      {gisLayers.marineTraffic === false && (
+        <div className="absolute inset-0 w-full h-full bg-[#030a16] flex flex-col items-center justify-center text-slate-500 font-mono text-xs z-0 pointer-events-none">
+          <Eye className="w-8 h-8 opacity-40 mb-2" />
+          <div>MarineTraffic Live AIS map layer is currently hidden via GIS Layer Stack.</div>
+          <div className="text-[10px] text-slate-600 mt-1">Check "MarineTraffic Live AIS" in the left panel to show map.</div>
+        </div>
+      )}
+
+
+      {/* ========================================================================= */}
+      {/* 3. TRANSPARENT COORDINATE OVERLAY (Directly above MarineTraffic iframe)   */}
+      {/* Prominently marks Contract 1, Contract 2, Suspect Vessel, and Origin      */}
+      {/* ========================================================================= */}
+      <CoordinateOverlay
+        contract1={contract1}
+        corridor={corridor}
+        topSuspect={topSuspect}
+        gisLayers={gisLayers}
+      />
+
+      {/* MarineTraffic Live Map Header Tag */}
+      <div className="absolute top-4 left-4 z-20 pointer-events-none">
+        <div className="bg-slate-950/90 border border-blue-500/40 rounded px-3 py-1.5 backdrop-blur shadow-xl flex items-center gap-2 font-mono text-xs text-blue-300">
+          <span className={`w-2 h-2 rounded-full ${gisLayers.marineTraffic !== false ? 'bg-blue-400 animate-pulse' : 'bg-slate-500'}`} />
+          <span className="font-bold tracking-wide">MARINETRAFFIC LIVE AIS MAP</span>
+          <span className="text-slate-400 text-[10px]">
+            {gisLayers.marineTraffic !== false ? '(Real-Time Vessel Traffic)' : '(LAYER HIDDEN)'}
+          </span>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 4. FLOATING CONTROLS: GIS LAYERS PANEL (Left Side)                        */}
+      {/* ========================================================================= */}
       <div
         id="gis-layers-panel"
-        className={`absolute top-4 left-4 z-30 flex flex-col shadow-lg transition-all duration-200 overflow-hidden ${isLayersPanelCollapsed ? 'w-44' : 'w-72'}`}
-        style={{ background: 'var(--gov-surface)', border: '1px solid var(--gov-border)', borderTop: '3px solid var(--gov-navy)', borderRadius: '2px' }}
+        className={`absolute top-16 left-4 z-30 flex flex-col shadow-2xl transition-all duration-200 overflow-hidden ${
+          isLayersPanelCollapsed ? 'w-44' : 'w-72'
+        }`}
+        style={{
+          background: 'var(--gov-surface)',
+          border: '1px solid var(--gov-border)',
+          borderTop: '3px solid var(--gov-navy)',
+          borderRadius: '2px'
+        }}
       >
-        {/* Panel header */}
         <div
-          className="px-3 py-2.5 flex justify-between items-center"
+          className="px-3 py-2 flex justify-between items-center"
           style={{ background: 'var(--gov-surface-alt)', borderBottom: '1px solid var(--gov-border)' }}
         >
           <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--gov-navy)' }}>
@@ -329,8 +251,8 @@ export const MapView: React.FC<MapViewProps> = ({
           </span>
           <button
             onClick={() => setIsLayersPanelCollapsed(!isLayersPanelCollapsed)}
-            className="p-1 rounded transition-colors"
-            style={{ color: 'var(--gov-text-muted)', cursor: 'pointer' }}
+            className="p-1 rounded transition-colors cursor-pointer"
+            style={{ color: 'var(--gov-text-muted)' }}
             title="Toggle Panel"
           >
             {isLayersPanelCollapsed ? <Eye className="w-3.5 h-3.5" /> : <Sliders className="w-3.5 h-3.5" />}
@@ -338,12 +260,29 @@ export const MapView: React.FC<MapViewProps> = ({
         </div>
 
         {!isLayersPanelCollapsed && (
-          <div className="p-3 flex flex-col gap-1 max-h-[calc(100vh-220px)] overflow-y-auto">
-            <LayerRow label="SAR Backscatter Base" checked={gisLayers.sarBackscatter} onChange={v => setGisLayers({ ...gisLayers, sarBackscatter: v })} colorDot="#718096" />
+          <div className="p-3 flex flex-col gap-1 max-h-[calc(100vh-280px)] overflow-y-auto">
+            {/* 1. MarineTraffic Live AIS Toggle */}
+            <LayerRow
+              label="MarineTraffic Live AIS"
+              checked={gisLayers.marineTraffic !== false}
+              onChange={v => setGisLayers({ ...gisLayers, marineTraffic: v })}
+              colorDot="#3b82f6"
+            />
 
-            {/* Predicted mask with opacity slider */}
+            <div className="mt-1 pt-1 border-t border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              Telemetry Overlays:
+            </div>
+
+            {/* 3. Predicted Mask (Detector) Toggle & Opacity Slider */}
             <div style={{ border: '1px solid var(--gov-navy)', borderRadius: '2px', background: 'var(--gov-navy-light)' }}>
-              <LayerRow label="Predicted Mask (Detector)" checked={gisLayers.predictedMask} onChange={v => setGisLayers({ ...gisLayers, predictedMask: v })} colorDot="#000080" />
+              <LayerRow
+                label="Predicted Mask (Detector)"
+                checked={gisLayers.predictedMask}
+                onChange={v => setGisLayers({ ...gisLayers, predictedMask: v })}
+                colorDot="#06b6d4"
+                disabled={!contract1}
+                disabledReason="Run Ingest stage to produce Contract 1 polygon mask"
+              />
               {gisLayers.predictedMask && (
                 <div className="pl-9 pr-3 pb-2 flex items-center gap-2">
                   <span className="text-[10px] font-semibold uppercase tracking-wider w-14" style={{ color: 'var(--gov-navy)' }}>Opacity</span>
@@ -351,7 +290,7 @@ export const MapView: React.FC<MapViewProps> = ({
                     type="range" min="0" max="100"
                     value={gisLayers.predictedMaskOpacity}
                     onChange={e => setGisLayers({ ...gisLayers, predictedMaskOpacity: Number(e.target.value) })}
-                    className="flex-1"
+                    className="flex-1 cursor-pointer"
                     style={{ accentColor: 'var(--gov-navy)' }}
                   />
                   <span className="text-xs font-mono w-8 text-right" style={{ color: 'var(--gov-navy)' }}>{gisLayers.predictedMaskOpacity}%</span>
@@ -359,38 +298,52 @@ export const MapView: React.FC<MapViewProps> = ({
               )}
             </div>
 
-            <LayerRow label="Confidence Heatmap" checked={gisLayers.confidenceHeatmap} onChange={v => setGisLayers({ ...gisLayers, confidenceHeatmap: v })} colorDot="#C62828" />
+            {/* 4. Confidence Heatmap Toggle */}
             <LayerRow
-              label={`Drift Corridor Path (${corridor?.field_source ?? 'n/a'})`}
+              label="Confidence Heatmap"
+              checked={gisLayers.confidenceHeatmap}
+              onChange={v => setGisLayers({ ...gisLayers, confidenceHeatmap: v })}
+              colorDot="#C62828"
+              disabled={!contract1}
+              disabledReason="Run Ingest stage to compute detection confidence"
+            />
+
+            {/* 5. Drift Corridor Path Toggle */}
+            <LayerRow
+              label={`Drift Corridor Path (${corridor?.field_source ?? 'analytic'})`}
               checked={gisLayers.oceanCurrents}
               onChange={v => setGisLayers({ ...gisLayers, oceanCurrents: v })}
-              colorDot="#FF9933"
+              colorDot="#f59e0b"
               disabled={!corridor}
-              disabledReason="Run Drift analysis first to fetch a real corridor"
+              disabledReason="Run Drift analysis first to compute trajectory corridor"
             />
+
+            {/* 6. Suspect Vessel Position Toggle */}
             <LayerRow
               label="Suspect Vessel Position"
               checked={gisLayers.aisTracks}
               onChange={v => setGisLayers({ ...gisLayers, aisTracks: v })}
-              colorDot="#FF9933"
+              colorDot="#ef4444"
               disabled={!topSuspect}
               disabledReason="Run Suspect matching first to identify a top suspect"
             />
+
+            {/* 7. Origin Estimate Toggle */}
             <LayerRow
               label="Origin Estimate"
               checked={gisLayers.originEstimate}
               onChange={v => setGisLayers({ ...gisLayers, originEstimate: v })}
               icon={<Crosshair className="w-3 h-3 shrink-0" style={{ color: '#C62828' }} />}
-              disabled={!corridor}
-              disabledReason="Run Drift analysis first to fetch a real corridor"
+              disabled={!contract1}
+              disabledReason="Run Ingest stage first to fetch Contract 1 detection origin"
             />
 
-            {/* Inspect button */}
+            {/* 8. Inspect Anomaly Button */}
             <button
-              onClick={() => onSelectDetection && onSelectDetection(activeDetection || currentScene.detections?.[0])}
-              className="mt-2 w-full py-2 flex items-center justify-center gap-1.5 text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer"
+              onClick={handleInspectClick}
+              className="mt-2 w-full py-2 flex items-center justify-center gap-1.5 text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer shadow-md"
               style={{
-                background: 'var(--gov-green)',
+                background: contract1 || activeDetection ? 'var(--gov-green)' : '#475569',
                 color: '#ffffff',
                 border: 'none',
                 borderRadius: '2px'
@@ -403,31 +356,216 @@ export const MapView: React.FC<MapViewProps> = ({
         )}
       </div>
 
-
-      {/* Scale bar */}
-      <div className="absolute bottom-4 left-4 z-20 pointer-events-none">
-        <div
-          className="flex flex-col gap-1 items-start px-3 py-2"
-          style={{ background: 'var(--gov-surface)', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
+      {/* ========================================================================= */}
+      {/* 5. TELEMETRY DETAILS PANEL (Top-Right of Map)                              */}
+      {/* ========================================================================= */}
+      <div className="absolute top-4 right-4 z-30 flex flex-col items-end gap-2">
+        <button
+          onClick={() => setIsOverlayPanelOpen(!isOverlayPanelOpen)}
+          className="px-3 py-1.5 rounded text-xs font-mono font-bold bg-slate-950/95 text-cyan-300 border border-cyan-500/50 hover:bg-cyan-950/50 shadow-2xl cursor-pointer flex items-center gap-2 backdrop-blur"
         >
-          <div className="font-mono text-[10px]" style={{ color: 'var(--gov-text-secondary)' }}>10 NM (18.5 km)</div>
-          <div className="flex h-1.5 w-28" style={{ border: '1px solid var(--gov-border-strong)', borderTop: 'none' }}>
-            <div className="w-1/2 h-full" style={{ background: 'var(--gov-navy)', borderRight: '1px solid var(--gov-border-strong)' }} />
+          <Activity className="w-3.5 h-3.5 text-cyan-400" />
+          [ {isOverlayPanelOpen ? 'Hide Coordinates Panel' : 'Show Coordinates Panel'} ]
+        </button>
+
+        {isOverlayPanelOpen && (
+          <div
+            id="coordinate-telemetry-overlay-panel"
+            className="w-88 max-h-[calc(100vh-140px)] overflow-y-auto bg-slate-950/90 border border-cyan-500/40 rounded-xl p-4 shadow-2xl backdrop-blur font-mono text-[11px] text-slate-200 flex flex-col gap-3 pointer-events-auto transition-opacity duration-200"
+            style={{ opacity: Math.max(gisLayers.predictedMaskOpacity / 100, 0.2) }}
+          >
+            <div className="flex items-center justify-between border-b border-cyan-900/60 pb-2">
+              <span className="font-bold text-cyan-300 flex items-center gap-1.5">
+                <Compass className="w-4 h-4 text-cyan-400" />
+                TELEMETRY COORDINATES
+              </span>
+              <span className="text-[10px] text-cyan-400 font-semibold">
+                OPACITY: {gisLayers.predictedMaskOpacity}%
+              </span>
+            </div>
+
+            {/* CONTRACT 1 — DETECTED SPILL */}
+            {gisLayers.predictedMask && (
+              <div className="bg-slate-900/90 p-3 rounded-lg border border-cyan-500/40 flex flex-col gap-1.5 shadow-md">
+                <div className="text-cyan-300 font-bold text-xs uppercase flex items-center justify-between border-b border-slate-800 pb-1">
+                  <span className="flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-cyan-400" />
+                    CONTRACT 1 — DETECTED SPILL
+                  </span>
+                  {c1Coords ? (
+                    c1Coords.valid ? (
+                      <span className="text-emerald-400 text-[10px] flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> VALID
+                      </span>
+                    ) : (
+                      <span className="text-rose-400 text-[10px] flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" /> INVALID
+                      </span>
+                    )
+                  ) : (
+                    <span className="text-slate-400 text-[10px]">NO DATA</span>
+                  )}
+                </div>
+
+                {c1Coords ? (
+                  <div className="flex flex-col gap-1 text-[11px] pt-0.5">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Centroid Lat:</span>
+                      <span className="text-white font-semibold">{c1Coords.latitude.toFixed(6)}°</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Centroid Lon:</span>
+                      <span className="text-white font-semibold">{c1Coords.longitude.toFixed(6)}°</span>
+                    </div>
+                    {contract1?.area_km2 !== undefined && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Spill Area:</span>
+                        <span className="text-cyan-300 font-semibold">{contract1.area_km2} km²</span>
+                      </div>
+                    )}
+                    {contract1?.major_axis_km !== undefined && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Major Axis:</span>
+                        <span className="text-slate-200">{contract1.major_axis_km} km</span>
+                      </div>
+                    )}
+                    {contract1?.confidence !== undefined && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Confidence:</span>
+                        <span className="text-emerald-400 font-semibold">
+                          {(contract1.confidence * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Detector:</span>
+                      <span className="text-slate-300">ResNet-50 SAR Morphological</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-slate-400 italic text-[10px] pt-1">
+                    Run Ingest stage to fetch Contract 1 detection.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* CONTRACT 2 — DRIFT CORRIDOR */}
+            {gisLayers.oceanCurrents && (
+              <div className="bg-slate-900/90 p-3 rounded-lg border border-amber-500/40 flex flex-col gap-1.5 shadow-md">
+                <div className="text-amber-300 font-bold text-xs uppercase flex items-center justify-between border-b border-slate-800 pb-1">
+                  <span>CONTRACT 2 — DRIFT CORRIDOR</span>
+                  <span className="text-slate-400 text-[10px]">
+                    {c2Nodes.length > 0 ? `${c2Nodes.length} Nodes` : 'NO DATA'}
+                  </span>
+                </div>
+                {c2Nodes.length > 0 ? (
+                  <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto pr-1 pt-0.5">
+                    {c2Nodes.map((n) => (
+                      <div key={n.idx} className="bg-slate-950/80 p-2 rounded border border-slate-800/80 text-[10px] flex flex-col gap-0.5">
+                        <div className="flex justify-between font-bold text-amber-400">
+                          <span>Node {n.idx} (T-{n.hours_ago}h)</span>
+                          <span className="text-slate-400 font-normal">r = {n.radius_km} km</span>
+                        </div>
+                        <div className="flex justify-between text-slate-300">
+                          <span>Lat: <strong className="text-white">{n.latitude.toFixed(6)}°</strong></span>
+                          <span>Lon: <strong className="text-white">{n.longitude.toFixed(6)}°</strong></span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-slate-400 italic text-[10px] pt-1">
+                    No corridor data available. Run Drift stage.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* AIS / TOP SUSPECT */}
+            {gisLayers.aisTracks && (
+              <div className="bg-slate-900/90 p-3 rounded-lg border border-orange-500/40 flex flex-col gap-1.5 shadow-md">
+                <div className="text-orange-300 font-bold text-xs uppercase flex items-center justify-between border-b border-slate-800 pb-1">
+                  <span className="flex items-center gap-1.5">
+                    <Ship className="w-3.5 h-3.5 text-orange-400" />
+                    AIS / TOP SUSPECT
+                  </span>
+                  {suspectCoord ? (
+                    <span className="text-emerald-400 text-[10px] font-bold">MATCHED</span>
+                  ) : (
+                    <span className="text-slate-400 text-[10px]">NONE</span>
+                  )}
+                </div>
+                {suspectCoord ? (
+                  <div className="text-[11px] flex flex-col gap-1 pt-0.5">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Vessel Name:</span>
+                      <span className="font-bold text-white">{suspectCoord.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">MMSI:</span>
+                      <span className="text-amber-300 font-semibold">{suspectCoord.mmsi}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Matched Node:</span>
+                      <span className="text-cyan-300 font-semibold">T-{suspectCoord.fits_hours_ago}h</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Latitude:</span>
+                      <span className="text-white font-semibold">{suspectCoord.latitude.toFixed(6)}°</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Longitude:</span>
+                      <span className="text-white font-semibold">{suspectCoord.longitude.toFixed(6)}°</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-slate-400 italic text-[10px] pt-1">
+                    No suspect matched yet. Run Suspects stage.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ========================================================================= */}
+      {/* NO ANOMALY DETECTION NOTICE MODAL                                          */}
+      {/* ========================================================================= */}
+      {noAnomalyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-700 rounded-xl p-5 max-w-md w-full shadow-2xl flex flex-col gap-3 font-mono text-xs text-slate-200">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <span className="font-bold text-amber-400 flex items-center gap-2 text-sm">
+                <AlertTriangle className="w-4 h-4 text-amber-400" />
+                No Anomaly Detection Available
+              </span>
+              <button onClick={() => setNoAnomalyModalOpen(false)} className="text-slate-400 hover:text-white p-1">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="text-slate-300 leading-relaxed">
+              No real Contract 1 anomaly detection response is currently loaded in memory.
+              <br /><br />
+              To inspect an anomaly:
+              <ol className="list-decimal pl-5 mt-1 space-y-1 text-slate-400">
+                <li>Go to the <strong>Ingest</strong> pipeline stage.</li>
+                <li>Click <strong>Run Detection Pipeline</strong> to receive live Contract 1 detection output.</li>
+                <li>Return to the Map view to inspect details.</li>
+              </ol>
+            </div>
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setNoAnomalyModalOpen(false)}
+                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded cursor-pointer transition-colors"
+              >
+                Close Notice
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* Coordinates display */}
-      <div
-        id="coordinate-display"
-        className="absolute bottom-4 right-4 z-20 flex items-center gap-2 px-4 py-2 pointer-events-none"
-        style={{ background: 'var(--gov-surface)', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
-      >
-        <span className="w-2 h-2 rounded-full inline-block" style={{ background: 'var(--gov-green)' }} />
-        <span className="font-mono text-xs font-semibold" style={{ color: 'var(--gov-navy)' }}>
-          {cursorCoords.lat}, {cursorCoords.lon}
-        </span>
-      </div>
+      )}
     </div>
   );
 };

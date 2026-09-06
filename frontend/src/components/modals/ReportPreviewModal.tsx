@@ -17,7 +17,7 @@ interface ReportPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentScene: SceneMetadata;
-  detection: MorphologicalProperties;
+  detection: MorphologicalProperties | null;
   topSuspect: Suspect | null;
 }
 
@@ -28,7 +28,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
   detection,
   topSuspect
 }) => {
-  if (!isOpen) return null;
+  if (!isOpen || !detection) return null;
 
   const handlePrint = () => window.print();
   const handleDownload = () => { alert("Report PDF compilation prepared. Initialising print-to-PDF..."); window.print(); };

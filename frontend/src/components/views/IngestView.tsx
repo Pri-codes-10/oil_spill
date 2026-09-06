@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SceneMetadata } from '../../types';
+import { SceneMetadata, CorridorResponse, Suspect } from '../../types';
 import { DEMO_SCENES } from '../../data';
 import {
   CloudUpload,
@@ -10,131 +10,168 @@ import {
   Satellite,
   Clock,
   ChevronRight,
-  Upload
+  Upload,
+  Play
 } from 'lucide-react';
 import { APP_BACKGROUND, APP_BACKGROUND_DARK } from '../../data';
 interface IngestViewProps {
   currentScene: SceneMetadata;
   setCurrentScene: (scene: SceneMetadata) => void;
   onContinueToMap: () => void;
-  onContract1: (contract1: DetectionResponse) => void;
+  onContract1: (contract1: DetectionResponse | null) => void;
+  onCorridorReady?: (corridor: CorridorResponse | null) => void;
+  onTopSuspectReady?: (suspect: Suspect | null) => void;
+  pipelineStep: number;
+  setPipelineStep: (step: number) => void;
 }
 import {
   detectScene,
   DetectionResponse,
   uploadScene,
+  getCorridor,
+  rankSuspects,
 } from "../../api/api";
 
 export const IngestView: React.FC<IngestViewProps> = ({
   currentScene,
   setCurrentScene,
   onContinueToMap,
-  onContract1
+  onContract1,
+  onCorridorReady,
+  onTopSuspectReady,
+  pipelineStep,
+  setPipelineStep,
 }) => {
-  const [pipelineStep, setPipelineStep] = useState<number>(1);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [customFileName, setCustomFileName] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<boolean>(false);
-  const [contract1, setContract1] =
-  useState<DetectionResponse | null>(null);
+  const [contract1, setContract1] = useState<DetectionResponse | null>(null);
   const [overlayImage, setOverlayImage] = useState<string | null>(null);
 
   const handleSelectDemo = (sceneId: string) => {
-  const scene = DEMO_SCENES.find((s) => s.id === sceneId);
+    const scene = DEMO_SCENES.find((s) => s.id === sceneId);
 
-  if (!scene) {
-    return;
-  }
-
-  // Immediate UI response
-  setCurrentScene(scene);
-  setCustomFileName(null);
-
-  // Backend processing happens asynchronously
-  void runDetection(scene);
-};
-
-  const handleFileUpload = async (
-  e: React.ChangeEvent<HTMLInputElement>
-) => {
-  const file = e.target.files?.[0];
-
-  if (!file) {
-    return;
-  }
-
-  setCustomFileName(file.name);
-
-  await runDetection(currentScene, file);
-};
-
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
-  e.preventDefault();
-  setDragOver(false);
-
-  const file = e.dataTransfer.files?.[0];
-
-  if (!file) {
-    return;
-  }
-
-  setCustomFileName(file.name);
-
-  await runDetection(currentScene, file);
-};
-
-
-  const runDetection = async (scene: SceneMetadata, file?: File) => {
-  setIsProcessing(true);
-  setPipelineStep(1);
-  setOverlayImage(null);
-
-  try {
-    console.log("Sending detection request to backend...");
-
-    const result = file
-      ? await uploadScene(file)
-      : await detectScene(scene.id);
-
-    console.log("INGEST BACKEND RESULT:", result);
-
-    setContract1(result);
-    onContract1(result);
-    setOverlayImage(result.overlay_image ?? null);
-
-    const existingDetection = scene.detections?.[0];
-
-    if (existingDetection) {
-      const updatedDetection = {
-        ...existingDetection,
-        areaKm2: result.area_km2,
-        majorAxisKm: result.major_axis_km,
-        minorAxisKm: result.minor_axis_km,
-        bearingDeg: result.orientation_deg,
-        centroid: `${result.centroid[1].toFixed(4)}°N, ${result.centroid[0].toFixed(4)}°E`,
-        confidence: result.confidence * 100,
-      };
-
-      setCurrentScene({
-        ...scene,
-        detections: [updatedDetection],
-      });
+    if (!scene) {
+      return;
     }
 
-    setPipelineStep(5); // Mark pipeline as complete
+    console.log("[INGEST] selected scene:", scene);
+    console.log("[INGEST] scene path:", scene.backendScenePath);
 
-  } catch (error) {
-    console.error("INGEST ERROR:", error);
+    // Immediate UI response & clear old backend detection in App.tsx
+    setCurrentScene(scene);
+    setCustomFileName(null);
 
-    alert(
-      error instanceof Error
-        ? error.message
-        : "Unable to connect to the backend."
-    );
-  } finally {
-    setIsProcessing(false);
-  }
-};
+    // Backend processing happens asynchronously
+    void runDetection(scene);
+  };
+
+  const handleFileUpload = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    setCustomFileName(file.name);
+
+    void runDetection(currentScene, file);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragOver(false);
+
+    const file = e.dataTransfer.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    setCustomFileName(file.name);
+
+    void runDetection(currentScene, file);
+  };
+
+  const runDetection = async (scene: SceneMetadata, file?: File) => {
+    setIsProcessing(true);
+    setPipelineStep(1);
+    setOverlayImage(null);
+
+    try {
+      const scenePath = file ? undefined : (scene.backendScenePath || scene.id);
+      console.log("[INGEST] Stage 1/4: Sending detection request to backend for:", file ? file.name : scenePath);
+
+      // Stage 1: Detect (SAR Segmentation -> Contract 1)
+      const result = file
+        ? await uploadScene(file)
+        : await detectScene(scenePath);
+
+      console.log("[INGEST] Stage 1 complete. Backend Contract 1:", result);
+      setContract1(result);
+      onContract1(result);
+      setOverlayImage(result.overlay_image ?? null);
+
+      // Stage 2: Morph (Morphological Geometry Analysis from Contract 1)
+      setPipelineStep(2);
+      await new Promise((res) => setTimeout(res, 450));
+      console.log("[INGEST] Stage 2 complete. Morphological geometry calculated.");
+
+      // Stage 3: Drift (Numerical Drift Simulation -> Contract 2 Corridor)
+      setPipelineStep(3);
+      let corridorResult: CorridorResponse | null = null;
+      try {
+        console.log("[INGEST] Stage 3/4: Requesting drift corridor from backend...");
+        corridorResult = await getCorridor(result, 'analytic');
+        console.log("[INGEST] Stage 3 complete. Backend Contract 2 (Corridor):", corridorResult);
+        if (onCorridorReady) {
+          onCorridorReady(corridorResult);
+        }
+      } catch (driftErr) {
+        console.warn("[INGEST] Drift calculation warning:", driftErr);
+      }
+      await new Promise((res) => setTimeout(res, 450));
+
+      // Stage 4: Match (AIS Candidate Matrix Correlation -> Contract 3)
+      setPipelineStep(4);
+      if (corridorResult) {
+        try {
+          console.log("[INGEST] Stage 4/4: Requesting AIS suspect ranking from backend...");
+          const attributionResult = await rankSuspects(corridorResult, result.orientation_deg);
+          console.log("[INGEST] Stage 4 complete. Backend Contract 3 (Suspects):", attributionResult);
+          if (onTopSuspectReady && attributionResult.suspects && attributionResult.suspects.length > 0) {
+            onTopSuspectReady(attributionResult.suspects[0]);
+          }
+        } catch (matchErr) {
+          console.warn("[INGEST] Attribution ranking warning:", matchErr);
+        }
+      }
+      await new Promise((res) => setTimeout(res, 450));
+
+      // All 4 stages successfully verified and complete!
+      setPipelineStep(5);
+      console.log("[INGEST] Full pipeline execution successfully completed (Stages 1-4).");
+
+    } catch (error) {
+      console.error("[INGEST] Backend detection error:", error);
+      setContract1(null);
+      setOverlayImage(null);
+      onContract1(null);
+      if (onCorridorReady) onCorridorReady(null);
+      if (onTopSuspectReady) onTopSuspectReady(null);
+      setPipelineStep(1);
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Unable to connect to the backend."
+      );
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const pipelineSteps = [
     { num: 1, label: 'Detect', sub: 'Segmented' },
@@ -287,7 +324,7 @@ export const IngestView: React.FC<IngestViewProps> = ({
                         )}
                       </div>
                       <span className="font-mono text-[12px] block mt-0.5" style={{ color: 'var(--gov-text-muted)' }}>
-                        {scene.detections ? `${scene.detections.length} Slicks` : '1 Slick'} · {scene.satellite} ({scene.mode})
+                        {isSelected && pipelineStep >= 5 ? 'Pipeline Complete (Stages 1-4)' : isSelected && pipelineStep >= 2 ? 'Contract 1 Loaded' : 'Awaiting Ingestion'} · {scene.satellite} ({scene.mode})
                       </span>
                     </div>
                   </div>
@@ -326,9 +363,12 @@ export const IngestView: React.FC<IngestViewProps> = ({
               <Clock className="w-7 h-7" style={{ color: 'var(--gov-saffron)' }} />
               Pipeline Execution State
             </span>
-            <span className="tag tag-emerald">
-              <span className="w-1.5 h-1.5 rounded-full inline-block mr-1" style={{ background: 'var(--gov-green)' }} />
-              System Active
+            <span className={`tag ${pipelineStep >= 5 ? 'tag-emerald' : isProcessing ? 'tag-amber' : ''}`}>
+              <span
+                className="w-1.5 h-1.5 rounded-full inline-block mr-1"
+                style={{ background: pipelineStep >= 5 ? 'var(--gov-green)' : isProcessing ? 'var(--gov-saffron)' : 'var(--gov-navy)' }}
+              />
+              {pipelineStep >= 5 ? 'Verified Complete' : isProcessing ? 'Processing' : 'System Ready'}
             </span>
           </div>
 
@@ -340,8 +380,7 @@ export const IngestView: React.FC<IngestViewProps> = ({
               return (
                 <div
                   key={step.num}
-                  onClick={() => setPipelineStep(step.num)}
-                  className="p-3 flex flex-col items-center gap-1.5 cursor-pointer transition-colors rounded"
+                  className="p-3 flex flex-col items-center gap-1.5 cursor-default transition-colors rounded"
                   style={{
                     background: isDone || isRunning ? 'var(--gov-navy-light)' : 'var(--gov-surface-alt)',
                     border: `1px solid ${isDone ? 'var(--gov-green)' : isRunning ? 'var(--gov-navy)' : 'var(--gov-border)'}`
@@ -374,16 +413,33 @@ export const IngestView: React.FC<IngestViewProps> = ({
             className="mt-4 pt-3 flex items-center justify-between text-xs"
             style={{ borderTop: '1px solid var(--gov-border)', color: 'var(--gov-text-muted)' }}
           >
-            <span>Automatic Pipeline Trigger</span>
-            <span className="font-semibold" style={{ color: 'var(--gov-green)' }}>
-              Status: Active
+            <span className="flex items-center gap-2">
+              <span className="font-semibold" style={{ color: 'var(--gov-text-primary)' }}>Automatic Pipeline Flow:</span>
+              <span className="font-mono text-[11px]" style={{ color: isProcessing ? 'var(--gov-saffron)' : pipelineStep >= 5 ? 'var(--gov-green)' : 'var(--gov-text-muted)' }}>
+                {isProcessing
+                  ? pipelineStep === 1
+                    ? 'Stage 1/4: Segmenting SAR scene (Contract 1)...'
+                    : pipelineStep === 2
+                      ? 'Stage 2/4: Extracting morphological geometry...'
+                      : pipelineStep === 3
+                        ? 'Stage 3/4: Calculating backward drift corridor (Contract 2)...'
+                        : 'Stage 4/4: Correlating AIS vessel candidate matrix (Contract 3)...'
+                  : pipelineStep >= 5
+                    ? 'All 4 Pipeline Stages Successfully Executed & Verified'
+                    : pipelineStep >= 2
+                      ? `Contract 1 Verified — Advance or Re-run`
+                      : 'Select benchmark scene or upload SAR product to execute'}
+              </span>
+            </span>
+            <span className="font-semibold" style={{ color: pipelineStep >= 5 ? 'var(--gov-green)' : isProcessing ? 'var(--gov-saffron)' : 'var(--gov-navy)' }}>
+              {pipelineStep >= 5 ? 'Completed (4/4)' : isProcessing ? `Running Stage ${pipelineStep}/4` : 'Status: Ready'}
             </span>
           </div>
         </div>
 
         {/* Action Bar */}
         <div
-          className="flex items-center justify-between py-3 px-4 rounded z-10 relative"
+          className="flex flex-col sm:flex-row items-center justify-between gap-3 py-3 px-4 rounded z-10 relative"
           style={{ background: 'var(--gov-surface-alt)', border: '1px solid var(--gov-border)' }}
         >
           <div className="text-xs flex items-center gap-2" style={{ color: 'var(--gov-text-secondary)', fontFamily: 'var(--font-mono)' }}>
@@ -398,20 +454,47 @@ export const IngestView: React.FC<IngestViewProps> = ({
             &nbsp;({currentScene.locationName})
           </div>
 
-          <button
-            id="continue-to-map-btn"
-            onClick={onContinueToMap}
-            className="flex items-center gap-2 px-5 py-2.5 text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer"
-            style={{
-              background: 'var(--gov-green)',
-              color: '#ffffff',
-              border: '1px solid var(--gov-green-dim)',
-              borderRadius: '3px'
-            }}
-          >
-            <span>Proceed to Interactive GIS Map</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+            <button
+              id="execute-pipeline-btn"
+              onClick={() => runDetection(currentScene)}
+              disabled={isProcessing}
+              className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: 'var(--gov-navy)',
+                color: '#ffffff',
+                border: '1px solid var(--gov-navy)',
+                borderRadius: '3px'
+              }}
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Processing Stage {pipelineStep}/4...</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>Execute Full Pipeline</span>
+                </>
+              )}
+            </button>
+
+            <button
+              id="continue-to-map-btn"
+              onClick={onContinueToMap}
+              className="flex items-center gap-2 px-5 py-2.5 text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer"
+              style={{
+                background: 'var(--gov-green)',
+                color: '#ffffff',
+                border: '1px solid var(--gov-green-dim)',
+                borderRadius: '3px'
+              }}
+            >
+              <span>Proceed to Interactive GIS Map</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
       </div>

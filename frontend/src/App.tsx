@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ActiveTab, CorridorResponse, GisLayers, MorphologicalProperties, OperationNotification, SceneMetadata, Suspect } from './types';
-import { DEFAULT_DETECTION, DEMO_SCENES, INITIAL_GIS_LAYERS, INITIAL_NOTIFICATIONS } from './data';
+import { DEMO_SCENES, INITIAL_GIS_LAYERS, INITIAL_NOTIFICATIONS } from './data';
 import { TopAppBar } from './components/TopAppBar';
 import { SideNavBar } from './components/SideNavBar';
 import { IngestView } from './components/views/IngestView';
@@ -12,18 +12,19 @@ import { ExportView } from './components/views/ExportView';
 import { ReportPreviewModal } from './components/modals/ReportPreviewModal';
 import { HelpModal } from './components/modals/HelpModal';
 import { OperatorModal } from './components/modals/OperatorModal';
-import { DetectionResponse, getMockDetection } from "./api/api";
+import { DetectionResponse, createDetectionFromContract1 } from "./api/api";
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('map');
   const [currentScene, setCurrentScene] = useState<SceneMetadata>(DEMO_SCENES[0]);
-  const [detection, setDetection] = useState<MorphologicalProperties>(DEFAULT_DETECTION);
+  const [detection, setDetection] = useState<MorphologicalProperties | null>(null);
   const [gisLayers, setGisLayers] = useState<GisLayers>(INITIAL_GIS_LAYERS);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [notifications, setNotifications] = useState<OperationNotification[]>(INITIAL_NOTIFICATIONS);
   const [contract1, setContract1] = useState<DetectionResponse | null>(null);
   const [corridor, setCorridor] = useState<CorridorResponse | null>(null);
   const [topSuspect, setTopSuspect] = useState<Suspect | null>(null);
-
+  const [pipelineStep, setPipelineStep] = useState<number>(1);
   // Theme state: default to localStorage or system preference
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem('aquatrace_theme');
@@ -52,9 +53,23 @@ export default function App() {
   const [isOperatorModalOpen, setIsOperatorModalOpen] = useState<boolean>(false);
 
   const handleSceneChange = (scene: SceneMetadata) => {
+    console.log("[APP] handleSceneChange selected scene:", scene);
     setCurrentScene(scene);
-    if (scene.detections && scene.detections.length > 0) {
-      setDetection(scene.detections[0]);
+    setDetection(null);
+    setContract1(null);
+    setCorridor(null);
+    setTopSuspect(null);
+    setPipelineStep(1);
+  };
+
+  const handleContract1 = (result: DetectionResponse | null) => {
+    console.log("[APP] contract1:", result);
+    setContract1(result);
+    if (result) {
+      const mapped = createDetectionFromContract1(result, currentScene);
+      setDetection(mapped);
+    } else {
+      setDetection(null);
     }
   };
 
@@ -99,14 +114,18 @@ export default function App() {
               currentScene={currentScene}
               setCurrentScene={handleSceneChange}
               onContinueToMap={() => setActiveTab('map')}
-              onContract1={setContract1}
+              onContract1={handleContract1}
+              onCorridorReady={setCorridor}
+              onTopSuspectReady={setTopSuspect}
+              pipelineStep={pipelineStep}
+              setPipelineStep={setPipelineStep}
             />
           )}
 
           {activeTab === 'map' && (
             <MapView
               currentScene={currentScene}
-              activeDetection={detection}
+              activeDetection={detection || undefined}
               gisLayers={gisLayers}
               setGisLayers={setGisLayers}
               contract1={contract1}
@@ -123,9 +142,11 @@ export default function App() {
             <DetectionView 
               currentScene={currentScene}
               detection={detection}
+              contract1={contract1}
               onSelectDetection={handleSelectDetection}
               onViewDriftAnalysis={() => setActiveTab('drift')}
               onCloseDrawer={() => setActiveTab('map')}
+              onGoToIngest={() => setActiveTab('ingest')}
             />
           )}
 

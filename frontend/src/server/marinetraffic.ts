@@ -60,8 +60,9 @@ export function mapNavStatus(code: string | number): string {
 
 // Helper to dynamically read MARINETRAFFIC_API_KEY from environment or directly from .env file
 export function getMarineTrafficApiKey(): string {
-  if (process.env.MARINETRAFFIC_API_KEY && process.env.MARINETRAFFIC_API_KEY.trim() !== '') {
-    return process.env.MARINETRAFFIC_API_KEY.trim().replace(/^["']|["']$/g, '');
+  const envKey = process.env.MARINETRAFFIC_API_KEY || process.env.AISSTREAM_KEY || process.env.AIS_API_KEY;
+  if (envKey && envKey.trim() !== '') {
+    return envKey.trim().replace(/^["']|["']$/g, '');
   }
 
   // Check possible paths for .env
@@ -76,7 +77,7 @@ export function getMarineTrafficApiKey(): string {
     try {
       if (fs.existsSync(envPath)) {
         const content = fs.readFileSync(envPath, 'utf-8');
-        const match = content.match(/MARINETRAFFIC_API_KEY\s*=\s*["']?([^"'\r\n]+)["']?/);
+        const match = content.match(/(?:MARINETRAFFIC_API_KEY|AISSTREAM_KEY|AIS_API_KEY)\s*=\s*["']?([^"'\r\n]+)["']?/);
         if (match && match[1] && match[1].trim() !== '' && match[1] !== 'MY_MARINETRAFFIC_API_KEY') {
           return match[1].trim();
         }
@@ -174,6 +175,78 @@ export const DEFAULT_ARABIAN_SEA_VESSELS: AisVesselData[] = [
     flag: "HK",
     lastReportUtc: new Date(Date.now() - 3 * 60000).toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
     attributionScore: 30,
+    speedAnomalyKnots: 0.0
+  }
+];
+
+// Realistic baseline vessels centered around Bay of Bengal corridor (82.5°E, 14.0°N)
+export const DEFAULT_BAY_OF_BENGAL_VESSELS: AisVesselData[] = [
+  {
+    mmsi: "419001230",
+    imo: "9513780",
+    name: "VISHAKHA PRIDE",
+    lat: 14.0120,
+    lon: 82.5400,
+    speedKnots: 12.3,
+    headingDeg: 198,
+    courseDeg: 200,
+    shipType: "Aframax Crude Tanker",
+    shipTypeCode: 80,
+    status: "Under way using engine",
+    flag: "IN",
+    lastReportUtc: new Date(Date.now() - 3 * 60000).toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
+    attributionScore: 88,
+    speedAnomalyKnots: 3.5
+  },
+  {
+    mmsi: "563092100",
+    imo: "9620145",
+    name: "OCEAN HARMONY",
+    lat: 14.1500,
+    lon: 82.3200,
+    speedKnots: 16.1,
+    headingDeg: 45,
+    courseDeg: 43,
+    shipType: "Container Ship (8,500 TEU)",
+    shipTypeCode: 71,
+    status: "Under way using engine",
+    flag: "SG",
+    lastReportUtc: new Date(Date.now() - 1 * 60000).toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
+    attributionScore: 35,
+    speedAnomalyKnots: 0.0
+  },
+  {
+    mmsi: "353724000",
+    imo: "9487321",
+    name: "BENGAL SPIRIT",
+    lat: 13.9800,
+    lon: 82.7100,
+    speedKnots: 10.8,
+    headingDeg: 215,
+    courseDeg: 212,
+    shipType: "Product / Chemical Tanker",
+    shipTypeCode: 82,
+    status: "Under way using engine",
+    flag: "PA",
+    lastReportUtc: new Date(Date.now() - 6 * 60000).toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
+    attributionScore: 76,
+    speedAnomalyKnots: 2.1
+  },
+  {
+    mmsi: "477996300",
+    imo: "9815204",
+    name: "COROMANDEL VENTURE",
+    lat: 14.2200,
+    lon: 82.4600,
+    speedKnots: 14.5,
+    headingDeg: 30,
+    courseDeg: 28,
+    shipType: "Bulk Carrier",
+    shipTypeCode: 75,
+    status: "Under way using engine",
+    flag: "HK",
+    lastReportUtc: new Date(Date.now() - 2 * 60000).toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
+    attributionScore: 22,
     speedAnomalyKnots: 0.0
   }
 ];
