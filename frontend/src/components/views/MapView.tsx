@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { CorridorResponse, GisLayers, MorphologicalProperties, SceneMetadata, Suspect } from '../../types';
 import { DetectionResponse } from '../../api/api';
-import { projectPoints } from '../../utils/geoProjection';
+import { LatLon, projectPoints } from '../../utils/geoProjection';
 import {
   Layers,
   Crosshair,
@@ -14,6 +14,20 @@ import {
   EyeOff
 } from 'lucide-react';
 import { MarineTrafficMap } from '../MarineTrafficMap';
+
+// Detection centroids are stored as display strings, e.g. "58.3421°N, 2.1190°E"
+// or "9.1420°N, 79.7210°W" (see IngestView's real-backend assignment and
+// data.ts's demo fixtures) — parse back to signed decimal degrees.
+function parseCentroidString(centroid: string): { lat: number; lon: number } | null {
+  const match = centroid.match(/(-?\d+\.?\d*)\s*°?\s*([NS])\s*,\s*(-?\d+\.?\d*)\s*°?\s*([EW])/i);
+  if (!match) return null;
+  const [, latStr, latDir, lonStr, lonDir] = match;
+  let lat = parseFloat(latStr);
+  let lon = parseFloat(lonStr);
+  if (latDir.toUpperCase() === 'S') lat = -lat;
+  if (lonDir.toUpperCase() === 'W') lon = -lon;
+  return { lat, lon };
+}
 
 interface MapViewProps {
   currentScene: SceneMetadata;
@@ -71,6 +85,20 @@ export const MapView: React.FC<MapViewProps> = ({
     if (!corridor) return 1;
     return Math.max(...corridor.corridor.map(n => n.radius_km));
   }, [corridor]);
+
+  // Detection-mask projector — independent of the drift corridor (available
+  // as soon as a scene has detections, even before Drift has run). Anchored
+  // on the scene's own detections' real centroids, falling back to the
+  // scene's nominal lat/lon so a lone detection still gets a sane bounding box.
+  const detectionProjector = useMemo(() => {
+    const points: LatLon[] = (currentScene.detections || [])
+      .map(d => parseCentroidString(d.centroid))
+      .filter((p): p is LatLon => p !== null);
+    if (points.length === 0) {
+      points.push({ lat: currentScene.lat, lon: currentScene.lon });
+    }
+    return projectPoints(points);
+  }, [currentScene]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.target instanceof SVGElement || e.target instanceof HTMLImageElement || (e.target as HTMLElement).id === 'map-canvas-container') {
@@ -250,10 +278,12 @@ export const MapView: React.FC<MapViewProps> = ({
 
           {gisLayers.predictedMask && (
             <g id="slick-polygons-layer">
-              {(currentScene.detections || []).map((anom, idx) => {
+              {(currentScene.detections || []).map((anom) => {
                 const isSelected = activeDetection?.id === anom.id;
-                const cx = idx === 0 ? 510 : idx === 1 ? 650 : 380;
-                const cy = idx === 0 ? 400 : idx === 1 ? 320 : 540;
+                const parsedCentroid = parseCentroidString(anom.centroid);
+                const { x: cx, y: cy } = parsedCentroid
+                  ? detectionProjector(parsedCentroid)
+                  : { x: 500, y: 400 };
                 const rx = Math.max(anom.majorAxisKm * 10, 40);
                 const ry = Math.max(anom.minorAxisKm * 15, 20);
                 const rot = anom.bearingDeg;
