@@ -72,10 +72,23 @@ def detect_scene(scene_path):
     scene_path: path to a .SAFE product / .zip, OR the literal string
                 "synthetic" to run on a fabricated scene (day-1 testing).
     """
+    scene_path = Path(scene_path) if str(scene_path) != "synthetic" else scene_path
+
     if str(scene_path) == "synthetic":
         meta = {"start_time": utc(datetime.now(timezone.utc))}
         img = synthetic_scene()
         transform = _synthetic_transform(img.shape[0], img.shape[1])
+    elif scene_path.suffix.lower() in {".tif", ".tiff"}:
+        meta = {"start_time": datetime.fromtimestamp(
+            scene_path.stat().st_mtime,
+            tz=timezone.utc,
+        )}
+        vv_dn, transform, _crs = reader.open_grd_band(
+            scene_path,
+            max_dimension=INGEST_MAX_DIMENSION,
+        )
+        vv_db = reader.to_db(vv_dn)
+        img = np.stack([vv_db, vv_db], axis=-1)
     else:
         meta = safe.parse_safe_name(scene_path)
         vv_path = _find_measurement_tiff(scene_path, "vv")

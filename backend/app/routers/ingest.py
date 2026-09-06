@@ -11,9 +11,12 @@ ready yet — this is what lets frontend build against real JSON on day 1
 """
 
 import json
+import shutil
+import tempfile
+import zipfile
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from app.ingest.pipeline import detect_scene_for_frontend
@@ -40,6 +43,46 @@ def detect(req: DetectRequest):
         if MOCK_PATH.exists():
             return json.loads(MOCK_PATH.read_text())
         raise HTTPException(500, f"detection failed and no mock available: {exc}")
+
+
+@router.post("/upload")
+def upload(file: UploadFile = File(...)):
+    """Accept a frontend file upload and run the B1 detector on it."""
+    filename = Path(file.filename or "upload.bin").name
+    suffix = Path(filename).suffix.lower()
+    if suffix not in {".tif", ".tiff", ".zip", ".safe"}:
+        raise HTTPException(415, "supported uploads are .tif, .tiff, .zip, or .SAFE")
+
+    try:
+        with tempfile.TemporaryDirectory(prefix="spilltrace-") as temp_dir:
+            upload_path = Path(temp_dir) / filename
+            with upload_path.open("wb") as destination:
+                shutil.copyfileobj(file.file, destination)
+
+            scene_path = upload_path
+            if suffix == ".zip":
+                extract_dir = Path(temp_dir) / "extracted"
+                extract_dir.mkdir()
+                with zipfile.ZipFile(upload_path) as archive:
+                    root = extract_dir.resolve()
+                    for member in archive.infolist():
+                        target = (extract_dir / member.filename).resolve()
+                        if root not in target.parents and target != root:
+                            raise HTTPException(400, "archive contains an unsafe path")
+                    archive.extractall(extract_dir)
+
+                safe_products = list(extract_dir.glob("*.SAFE"))
+                scene_path = safe_products[0] if safe_products else extract_dir
+
+            c1 = detect_scene_for_frontend(str(scene_path))
+            validate_contract1(c1)
+            return c1
+    except HTTPException:
+        raise
+    except Exception as exc:
+        if MOCK_PATH.exists():
+            return json.loads(MOCK_PATH.read_text())
+        raise HTTPException(500, f"uploaded detection failed: {exc}") from exc
 
 
 @router.get("/mock")

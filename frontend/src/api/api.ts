@@ -49,3 +49,20 @@ export async function detectScene(
 
   return response.json();
 }
+
+export async function uploadScene(file: File): Promise<DetectionResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`${API_BASE_URL}/api/ingest/upload`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || `Backend error: ${response.status}`);
+  }
+
+  return response.json();
+}

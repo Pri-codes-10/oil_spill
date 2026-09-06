@@ -21,6 +21,7 @@ interface IngestViewProps {
 import {
   detectScene,
   DetectionResponse,
+  uploadScene,
 } from "../../api/api";
 
 export const IngestView: React.FC<IngestViewProps> = ({
@@ -61,7 +62,7 @@ export const IngestView: React.FC<IngestViewProps> = ({
 
   setCustomFileName(file.name);
 
-  await runDetection('synthetic');
+  await runDetection(currentScene, file);
 };
 
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
@@ -76,18 +77,20 @@ export const IngestView: React.FC<IngestViewProps> = ({
 
   setCustomFileName(file.name);
 
-  await runDetection('synthetic');
+  await runDetection(currentScene, file);
 };
 
 
-  const runDetection = async (scene: SceneMetadata) => {
+  const runDetection = async (scene: SceneMetadata, file?: File) => {
   setIsProcessing(true);
   setPipelineStep(1);
 
   try {
     console.log("Sending detection request to backend...");
 
-    const result = await detectScene("synthetic");
+    const result = file
+      ? await uploadScene(file)
+      : await detectScene("synthetic");
 
     console.log("INGEST BACKEND RESULT:", result);
 
