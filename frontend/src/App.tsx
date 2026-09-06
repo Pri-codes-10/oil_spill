@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ActiveTab, CorridorResponse, GisLayers, MorphologicalProperties, OperationNotification, SceneMetadata } from './types';
-import { DEFAULT_DETECTION, DEMO_SCENES, INITIAL_GIS_LAYERS, INITIAL_NOTIFICATIONS, SUSPECT_VESSELS } from './data';
+import { ActiveTab, CorridorResponse, GisLayers, MorphologicalProperties, OperationNotification, SceneMetadata, Suspect } from './types';
+import { DEFAULT_DETECTION, DEMO_SCENES, INITIAL_GIS_LAYERS, INITIAL_NOTIFICATIONS } from './data';
 import { TopAppBar } from './components/TopAppBar';
 import { SideNavBar } from './components/SideNavBar';
 import { IngestView } from './components/views/IngestView';
@@ -22,6 +22,7 @@ export default function App() {
   const [notifications, setNotifications] = useState<OperationNotification[]>(INITIAL_NOTIFICATIONS);
   const [contract1, setContract1] = useState<DetectionResponse | null>(null);
   const [corridor, setCorridor] = useState<CorridorResponse | null>(null);
+  const [topSuspect, setTopSuspect] = useState<Suspect | null>(null);
 
   // Theme state: default to localStorage or system preference
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -141,16 +142,17 @@ export default function App() {
               searchQuery={searchQuery}
               contract1={contract1}
               corridor={corridor}
+              onTopSuspectReady={setTopSuspect}
               onProceedToExport={() => setActiveTab('export')}
               onGoToIngest={() => setActiveTab('drift')}
             />
           )}
 
           {activeTab === 'export' && (
-            <ExportView 
+            <ExportView
               currentScene={currentScene}
               detection={detection}
-              topSuspect={SUSPECT_VESSELS[0]}
+              topSuspect={topSuspect}
               onOpenReportPreview={() => setIsReportModalOpen(true)}
             />
           )}
@@ -158,12 +160,12 @@ export default function App() {
       </div>
 
       {/* Global Modals */}
-      <ReportPreviewModal 
+      <ReportPreviewModal
         isOpen={isReportModalOpen}
         onClose={() => setIsReportModalOpen(false)}
         currentScene={currentScene}
         detection={detection}
-        topSuspect={SUSPECT_VESSELS[0]}
+        topSuspect={topSuspect}
       />
 
       <HelpModal 

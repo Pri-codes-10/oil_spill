@@ -1,5 +1,5 @@
 import React from 'react';
-import { MorphologicalProperties, SceneMetadata, VesselSuspect } from '../../types';
+import { MorphologicalProperties, SceneMetadata, Suspect } from '../../types';
 import { APP_LOGO } from '../../data';
 import {
   X,
@@ -18,7 +18,7 @@ interface ReportPreviewModalProps {
   onClose: () => void;
   currentScene: SceneMetadata;
   detection: MorphologicalProperties;
-  topSuspect: VesselSuspect;
+  topSuspect: Suspect | null;
 }
 
 export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
@@ -221,47 +221,54 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
               className="p-4 space-y-3 font-mono text-xs"
               style={{ background: 'var(--gov-surface-alt)', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
             >
-              <div className="flex justify-between items-center pb-2.5" style={{ borderBottom: '1px solid var(--gov-border)' }}>
-                <div>
-                  <span className="text-sm font-bold" style={{ color: 'var(--gov-text-primary)' }}>{topSuspect.name}</span>
-                  <span className="ml-2" style={{ color: 'var(--gov-text-muted)' }}>({topSuspect.type}, Flag: {topSuspect.flag})</span>
-                </div>
-                <span
-                  className="text-xs font-bold px-2.5 py-1"
-                  style={{
-                    background: 'var(--gov-green-light)',
-                    color: 'var(--gov-green)',
-                    border: '1px solid var(--gov-green)',
-                    borderRadius: '2px'
-                  }}
-                >
-                  Attribution: {topSuspect.score}%
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {[
-                  { label: 'Proximity', value: `${topSuspect.proximityScore}%` },
-                  { label: 'Timing', value: `${topSuspect.timingScore}%` },
-                  { label: 'Heading', value: `${topSuspect.headingMatchScore}%` },
-                  { label: 'Speed Dip', value: '5.4 kt (T-14h)', amber: true },
-                ].map(item => (
-                  <div
-                    key={item.label}
-                    className="p-2.5"
-                    style={{ background: '#ffffff', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
-                  >
-                    <span className="block text-[10px] uppercase font-semibold mb-0.5" style={{ color: 'var(--gov-text-muted)' }}>{item.label}</span>
-                    <span className="font-bold" style={{ color: item.amber ? 'var(--gov-saffron-dim)' : 'var(--gov-navy)' }}>{item.value}</span>
+              {topSuspect ? (
+                <>
+                  <div className="flex justify-between items-center pb-2.5" style={{ borderBottom: '1px solid var(--gov-border)' }}>
+                    <div>
+                      <span className="text-sm font-bold" style={{ color: 'var(--gov-text-primary)' }}>{topSuspect.name}</span>
+                      <span className="ml-2" style={{ color: 'var(--gov-text-muted)' }}>(MMSI: {topSuspect.mmsi}, Rank #{topSuspect.rank})</span>
+                    </div>
+                    <span
+                      className="text-xs font-bold px-2.5 py-1"
+                      style={{
+                        background: 'var(--gov-green-light)',
+                        color: 'var(--gov-green)',
+                        border: '1px solid var(--gov-green)',
+                        borderRadius: '2px'
+                      }}
+                    >
+                      Attribution: {Math.round(topSuspect.score * 100)}%
+                    </span>
                   </div>
-                ))}
-              </div>
 
-              <p className="text-xs leading-relaxed pt-1 font-sans" style={{ color: 'var(--gov-text-secondary)' }}>
-                <strong style={{ color: 'var(--gov-text-primary)' }}>Forensic Conclusion:</strong> AIS track trajectory precisely intersects
-                the hindcast backward trajectory dispersion zone during the estimated release window. Speed telemetry confirms an abrupt
-                deceleration from 14.2 kts to 5.4 kts consistent with deliberate stationary discharge activity.
-              </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { label: 'Proximity', value: `${Math.round(topSuspect.factors.proximity * 100)}%` },
+                      { label: 'Temporal Fit', value: `${Math.round(topSuspect.factors.temporal * 100)}%` },
+                      { label: 'Heading', value: `${Math.round(topSuspect.factors.heading_alignment * 100)}%` },
+                      { label: 'Speed Anomaly', value: `${Math.round(topSuspect.factors.speed_anomaly * 100)}%`, amber: true },
+                    ].map(item => (
+                      <div
+                        key={item.label}
+                        className="p-2.5"
+                        style={{ background: '#ffffff', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
+                      >
+                        <span className="block text-[10px] uppercase font-semibold mb-0.5" style={{ color: 'var(--gov-text-muted)' }}>{item.label}</span>
+                        <span className="font-bold" style={{ color: item.amber ? 'var(--gov-saffron-dim)' : 'var(--gov-navy)' }}>{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <p className="text-xs leading-relaxed pt-1 font-sans" style={{ color: 'var(--gov-text-secondary)' }}>
+                    <strong style={{ color: 'var(--gov-text-primary)' }}>Forensic Conclusion:</strong> {topSuspect.evidence}. Weighted score
+                    is a shortlisting aid for human review, not a verdict — each factor stays separately visible above.
+                  </p>
+                </>
+              ) : (
+                <p className="text-xs leading-relaxed font-sans" style={{ color: 'var(--gov-text-muted)' }}>
+                  No suspect has been ranked yet. Run the Drift hindcast and AIS attribution stages before exporting this report.
+                </p>
+              )}
             </div>
           </div>
 

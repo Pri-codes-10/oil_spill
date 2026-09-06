@@ -21,6 +21,7 @@ interface SuspectsViewProps {
   searchQuery: string;
   contract1: DetectionResponse | null;
   corridor: CorridorResponse | null;
+  onTopSuspectReady: (suspect: Suspect | null) => void;
   onGoToIngest: () => void;
 }
 
@@ -38,6 +39,7 @@ export const SuspectsView: React.FC<SuspectsViewProps> = ({
   searchQuery,
   contract1,
   corridor,
+  onTopSuspectReady,
   onGoToIngest
 }) => {
   const [suspects, setSuspects] = useState<Suspect[]>([]);
@@ -56,6 +58,7 @@ export const SuspectsView: React.FC<SuspectsViewProps> = ({
       setSuspects(result.suspects);
       setAisSource(result.ais_source);
       setSelectedSuspect(result.suspects[0] ?? null);
+      onTopSuspectReady(result.suspects[0] ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to reach the backend.');
     } finally {

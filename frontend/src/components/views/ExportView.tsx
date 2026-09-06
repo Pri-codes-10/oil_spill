@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
-import { MorphologicalProperties, SceneMetadata, VesselSuspect } from '../../types';
-import { 
-  FileText, 
-  Download, 
-  Copy, 
-  Check, 
-  Eye, 
-  Database, 
-  ShieldCheck, 
-  Lock, 
+import { MorphologicalProperties, SceneMetadata, Suspect } from '../../types';
+import {
+  FileText,
+  Download,
+  Copy,
+  Check,
+  Eye,
+  Database,
+  ShieldCheck,
+  Lock,
   ExternalLink,
   CheckCircle2,
   FileSpreadsheet,
@@ -21,7 +21,7 @@ import {
 interface ExportViewProps {
   currentScene: SceneMetadata;
   detection: MorphologicalProperties;
-  topSuspect: VesselSuspect;
+  topSuspect: Suspect | null;
   onOpenReportPreview: () => void;
 }
 
@@ -43,34 +43,37 @@ export const ExportView: React.FC<ExportViewProps> = ({
   };
 
   const handleDownloadGeoJSON = () => {
+    const features: object[] = [
+      {
+        type: "Feature",
+        properties: {
+          id: detection.id || "DET-001", title: detection.title,
+          classification: detection.classification, slick_type: detection.slickType,
+          confidence: detection.confidence, status: detection.status,
+          area_km2: detection.areaKm2, perimeter_km: detection.perimeterKm,
+          major_axis_km: detection.majorAxisKm, minor_axis_km: detection.minorAxisKm,
+          bearing_deg: detection.bearingDeg, estimated_volume_m3: detection.estimatedVolumeM3,
+          estimated_volume_bbl: detection.estimatedVolumeBbl, mean_thickness_um: detection.thicknessUm,
+          contrast_ratio_db: detection.contrastRatioDb, marangoni_damping: detection.dampingRatio,
+          sensor: currentScene.satellite, acquisition_utc: currentScene.acquisition
+        },
+        geometry: {
+          type: "Polygon",
+          coordinates: [[[currentScene.lon - 0.02, currentScene.lat - 0.01],[currentScene.lon + 0.01, currentScene.lat - 0.02],[currentScene.lon + 0.03, currentScene.lat + 0.01],[currentScene.lon - 0.01, currentScene.lat + 0.02],[currentScene.lon - 0.02, currentScene.lat - 0.01]]]
+        }
+      }
+    ];
+    if (topSuspect) {
+      features.push({
+        type: "Feature",
+        properties: { suspect: topSuspect.name, mmsi: topSuspect.mmsi, score: topSuspect.score, rank: topSuspect.rank },
+        geometry: { type: "Point", coordinates: [currentScene.lon, currentScene.lat] }
+      });
+    }
     const geojsonData = {
       type: "FeatureCollection",
       crs: { type: "name", properties: { name: "urn:ogc:def:crs:OGC:1.3:CRS84" } },
-      features: [
-        {
-          type: "Feature",
-          properties: {
-            id: detection.id || "DET-001", title: detection.title,
-            classification: detection.classification, slick_type: detection.slickType,
-            confidence: detection.confidence, status: detection.status,
-            area_km2: detection.areaKm2, perimeter_km: detection.perimeterKm,
-            major_axis_km: detection.majorAxisKm, minor_axis_km: detection.minorAxisKm,
-            bearing_deg: detection.bearingDeg, estimated_volume_m3: detection.estimatedVolumeM3,
-            estimated_volume_bbl: detection.estimatedVolumeBbl, mean_thickness_um: detection.thicknessUm,
-            contrast_ratio_db: detection.contrastRatioDb, marangoni_damping: detection.dampingRatio,
-            sensor: currentScene.satellite, acquisition_utc: currentScene.acquisition
-          },
-          geometry: {
-            type: "Polygon",
-            coordinates: [[[currentScene.lon - 0.02, currentScene.lat - 0.01],[currentScene.lon + 0.01, currentScene.lat - 0.02],[currentScene.lon + 0.03, currentScene.lat + 0.01],[currentScene.lon - 0.01, currentScene.lat + 0.02],[currentScene.lon - 0.02, currentScene.lat - 0.01]]]
-          }
-        },
-        {
-          type: "Feature",
-          properties: { suspect: topSuspect.name, mmsi: topSuspect.mmsi, score: topSuspect.score, flag: topSuspect.flag },
-          geometry: { type: "Point", coordinates: [currentScene.lon, currentScene.lat] }
-        }
-      ]
+      features
     };
     const blob = new Blob([JSON.stringify(geojsonData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -97,9 +100,11 @@ export const ExportView: React.FC<ExportViewProps> = ({
       ["SAR Contrast Ratio", `${detection.contrastRatioDb} dB`, `Backscatter min: ${detection.backscatterMinDb} dB`],
       ["Classification", detection.classification, `${detection.confidence}% confidence (${detection.status})`],
       ["Estimated Age", detection.estimatedAge, "Hindcast derived"],
-      ["Primary Suspect", topSuspect.name, `MMSI: ${topSuspect.mmsi}`],
-      ["Attribution Score", `${topSuspect.score}%`, "Proximity, timing, heading, speed"],
-      ["Speed Anomaly", "5.4 kt (T-14h)", "Observed speed drop during release window"]
+      ...(topSuspect ? [
+        ["Primary Suspect", topSuspect.name, `MMSI: ${topSuspect.mmsi}`],
+        ["Attribution Score", `${Math.round(topSuspect.score * 100)}%`, topSuspect.evidence],
+        ["Corridor Fit", `T-${topSuspect.fits_hours_ago}h`, `${topSuspect.distance_km.toFixed(1)} km from corridor centre`]
+      ] : [["Primary Suspect", "None ranked yet", "Run drift + attribution before export"]])
     ];
     const csvContent = csvRows.map(e => e.map(cell => `"${cell}"`).join(",")).join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -333,8 +338,12 @@ export const ExportView: React.FC<ExportViewProps> = ({
               { label: 'Scene Reference', value: `${currentScene.name} (${currentScene.satellite})`, highlight: false },
               { label: 'Target Anomaly', value: `${detection.id}: ${detection.title} · ${detection.areaKm2} km² (${detection.estimatedVolumeM3} m³ est. volume, ${detection.confidence}% Confidence)`, highlight: true },
               { label: 'Hindcast Drift Window', value: '14:00–18:00 UTC (T-14h to T-10h)', color: 'var(--gov-navy)', highlight: false },
-              { label: 'Attributed Vessel', value: `${topSuspect.name} (MMSI ${topSuspect.mmsi}, ${topSuspect.flag})`, color: 'var(--gov-saffron-dim)', highlight: true },
-              { label: 'Attribution Score', value: `${topSuspect.score}% Match (Proximity 98%, Timing 92%)`, color: 'var(--gov-green)', highlight: false },
+              topSuspect
+                ? { label: 'Attributed Vessel', value: `${topSuspect.name} (MMSI ${topSuspect.mmsi}, Rank #${topSuspect.rank})`, color: 'var(--gov-saffron-dim)', highlight: true }
+                : { label: 'Attributed Vessel', value: 'No suspect ranked yet — run Drift + Suspects first', color: 'var(--gov-text-muted)', highlight: true },
+              topSuspect
+                ? { label: 'Attribution Score', value: `${Math.round(topSuspect.score * 100)}% Match — ${topSuspect.evidence}`, color: 'var(--gov-green)', highlight: false }
+                : { label: 'Attribution Score', value: '—', color: 'var(--gov-text-muted)', highlight: false },
               { label: 'System Operator', value: 'SO-4092 (Automated Sentinel Core)', highlight: true },
             ].map((row, idx) => (
               <div
