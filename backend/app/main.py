@@ -14,7 +14,7 @@ from app.routers import ingest, drift, attribution
 
 app = FastAPI(title="SpillTrace API")
 app.add_middleware(
-    CORSMiddleware, allow_origins=["*"],       # demo only
+    CORSMiddleware, allow_origins=["http://localhost:3000"],       # demo only
     allow_methods=["*"], allow_headers=["*"],
 )
 app.include_router(ingest.router, prefix="/api")

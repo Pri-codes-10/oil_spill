@@ -37,6 +37,7 @@ export const IngestView: React.FC<IngestViewProps> = ({
   const [dragOver, setDragOver] = useState<boolean>(false);
   const [contract1, setContract1] =
   useState<DetectionResponse | null>(null);
+  const [overlayImage, setOverlayImage] = useState<string | null>(null);
 
   const handleSelectDemo = (sceneId: string) => {
   const scene = DEMO_SCENES.find((s) => s.id === sceneId);
@@ -86,6 +87,7 @@ export const IngestView: React.FC<IngestViewProps> = ({
   const runDetection = async (scene: SceneMetadata, file?: File) => {
   setIsProcessing(true);
   setPipelineStep(1);
+  setOverlayImage(null);
 
   try {
     console.log("Sending detection request to backend...");
@@ -98,6 +100,7 @@ export const IngestView: React.FC<IngestViewProps> = ({
 
     setContract1(result);
     onContract1(result);
+    setOverlayImage(result.overlay_image ?? null);
 
     const existingDetection = scene.detections?.[0];
 
@@ -118,7 +121,7 @@ export const IngestView: React.FC<IngestViewProps> = ({
       });
     }
 
-    setPipelineStep(3);
+    setPipelineStep(5); // Mark pipeline as complete
 
   } catch (error) {
     console.error("INGEST ERROR:", error);
@@ -293,6 +296,25 @@ export const IngestView: React.FC<IngestViewProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Pipeline Execution State */}
+        {overlayImage && (
+          <div className="flag-card p-5 z-10 relative">
+            <div className="bento-card-header mb-4">
+              <span className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--gov-navy)' }}>
+                Detected Slick Overlay
+              </span>
+              <span className="tag tag-emerald">Mask + Bounding Box</span>
+            </div>
+            <div className="overflow-hidden rounded" style={{ border: '1px solid var(--gov-border)', background: '#111827' }}>
+              <img
+                src={overlayImage}
+                alt="SAR image with detected oil slick mask and bounding box"
+                className="block w-full max-h-[520px] object-contain"
+              />
+            </div>
+          </div>
+        )}
 
         {/* Pipeline Execution State */}
         <div

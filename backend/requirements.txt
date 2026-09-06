@@ -13,6 +13,8 @@ httpx==0.27.2          # test-only: needed by fastapi.testclient.TestClient
 numpy==2.2.6             # bumped from 1.26.4: copernicusmarine/cdsapi need numpy>=2.1; capped <2.3 since scipy==1.13.1 warns it needs numpy<2.3
 python-multipart==0.0.20
 pandas==2.2.2
+ultralytics==8.4.140
+Pillow==12.3.0
 psycopg2-binary==2.9.9
 pyproj==3.6.1
 pytest==8.2.2

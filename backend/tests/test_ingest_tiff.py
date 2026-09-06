@@ -47,7 +47,7 @@ def test_detect_scene_reads_and_processes_vv_tiff(tmp_path):
 
     assert result["observed_at"] == "2017-02-05T12:49:45Z"
     assert result["crs"] == "EPSG:4326"
-    assert result["detector"] == "threshold"
+    assert result["detector"] in {"threshold", "yolov8"}
     assert result["area_km2"] > 0
     assert result["confidence"] > 0
 

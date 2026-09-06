@@ -53,8 +53,8 @@ def validate_contract1(d: dict) -> None:
     assert not missing, f"contract1 missing keys: {missing}"
     assert isinstance(d["observed_at"], str) and d["observed_at"].endswith("Z"), \
         "observed_at must be an ISO-8601 UTC string ending in 'Z' — use app.common.timeutil.iso_z"
-    assert d["detector"] in ("threshold", "unet"), \
-        f"detector must be 'threshold' or 'unet', got {d['detector']!r}"
+    assert d["detector"] in ("threshold", "unet", "yolov8"), \
+        f"detector must be 'threshold', 'unet', or 'yolov8', got {d['detector']!r}"
     assert 0.0 <= d["confidence"] <= 1.0
     lo, hi = d["orientation_deg"], d["orientation_deg"]
     assert 0.0 <= lo < 180.0, "orientation_deg must be mod 180 — an axis has no direction"

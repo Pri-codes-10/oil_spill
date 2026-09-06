@@ -12,7 +12,8 @@ export interface DetectionResponse {
   orientation_deg: number;
   centroid: [number, number];
   confidence: number;
-  detector: "threshold" | "unet";
+  detector: "threshold" | "unet" | "yolov8";
+  overlay_image?: string;
 }
 
 export async function getMockDetection(): Promise<DetectionResponse> {

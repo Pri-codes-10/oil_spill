@@ -23,18 +23,37 @@ synthetic AIS: a dumb version that works today beats a sophisticated one
 that might work Friday.
 """
 
+import base64
+import io
+import logging
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
+from PIL import Image
+from PIL import ImageDraw
 
 from app.ingest import safe, reader, tiling, detect_threshold, geometry, vectorize
 from app.common.timeutil import utc
 from app.config import INGEST_MAX_DIMENSION
 
 # --- day 1 -> day 5 swap point (Contract 0) --------------------------------
+logger = logging.getLogger(__name__)
+
 MODEL = detect_threshold.predict
 DETECTOR_NAME = "threshold"
+
+if os.getenv("OILSPILL_DETECTOR", "yolov8").lower() != "threshold":
+    try:
+        from app.ingest.detect_yolov8 import load_model, predict as predict_yolov8
+
+        load_model()
+        MODEL = predict_yolov8
+        DETECTOR_NAME = "yolov8"
+        logger.info("Using YOLOv8 oil-spill detector: model/yolov8_seg/best.pt")
+    except (ImportError, FileNotFoundError, OSError, RuntimeError) as exc:
+        logger.warning("YOLOv8 detector unavailable; using threshold fallback: %s", exc)
 
 
 def use_model(predict_fn, name):
@@ -166,17 +185,55 @@ def detect_scene(scene_path):
 
         img = np.stack([vv_db, vh_db], axis=-1)
 
+    detector_name = DETECTOR_NAME
     prob = tiling.predict_scene(img, MODEL)
     poly = vectorize.mask_to_polygon(prob, transform)
 
     if poly is None:
-        raise RuntimeError(
-            "no dark formation above threshold — pick a scene with a visible "
-            "slick/dark blob, or lower POLYGON_PROB_THRESHOLD in config.py for testing"
-        )
+        if detector_name != "threshold":
+            logger.warning("%s returned no polygon; retrying with threshold fallback", detector_name)
+            detector_name = "threshold"
+            prob = tiling.predict_scene(img, detect_threshold.predict)
+            poly = vectorize.mask_to_polygon(prob, transform)
+        if poly is None:
+            raise RuntimeError(
+                "no dark formation above threshold — pick a scene with a visible "
+                "slick/dark blob, or lower POLYGON_PROB_THRESHOLD in config.py for testing"
+            )
 
     confidence = float(np.clip(prob[prob > 0.1].mean() if (prob > 0.1).any() else 0.5, 0, 1))
-    return geometry.build_contract1(poly, meta["start_time"], confidence, DETECTOR_NAME)
+    result = geometry.build_contract1(poly, meta["start_time"], confidence, detector_name)
+    result["overlay_image"] = _build_overlay_image(img, prob)
+    return result
+
+
+def _build_overlay_image(img, prob):
+    """Encode a browser-friendly preview with the detected mask and box."""
+    grayscale = np.asarray(img[..., 0], dtype="float32")
+    finite = np.isfinite(grayscale)
+    if not finite.any():
+        grayscale = np.zeros(grayscale.shape, dtype="float32")
+    else:
+        low, high = np.percentile(grayscale[finite], [2, 98])
+        grayscale = np.clip((grayscale - low) / max(high - low, 1e-6), 0, 1)
+
+    mask = np.asarray(prob > 0.1, dtype=bool)
+    rgb = np.repeat((grayscale * 255).astype("uint8")[..., None], 3, axis=2)
+    rgb[mask] = (220, 38, 38)
+
+    rows, cols = np.where(mask)
+    if rows.size:
+        image = Image.fromarray(rgb, mode="RGB")
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((cols.min(), rows.min(), cols.max(), rows.max()), outline=(255, 214, 10), width=4)
+    else:
+        image = Image.fromarray(rgb, mode="RGB")
+
+    image.thumbnail((1400, 1400), Image.Resampling.LANCZOS)
+    output = io.BytesIO()
+    image.save(output, format="PNG", optimize=True)
+    encoded = base64.b64encode(output.getvalue()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
 
 
 def _synthetic_transform(h, w, lon0=33.0, lat0=32.6):
