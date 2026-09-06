@@ -16,7 +16,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from app.ingest.pipeline import detect_scene
+from app.ingest.pipeline import detect_scene_for_frontend
 from app.contracts import validate_contract1
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
@@ -32,7 +32,7 @@ class DetectRequest(BaseModel):
 def detect(req: DetectRequest):
     """Run B1's chain: SAFE product -> polygon + geometry (Contract 1)."""
     try:
-        c1 = detect_scene(req.scene_path)
+        c1 = detect_scene_for_frontend(req.scene_path)
         validate_contract1(c1)
         return c1
     except Exception as exc:

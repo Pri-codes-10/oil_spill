@@ -132,7 +132,7 @@ def _find_measurement_tiff(scene_path, pol):
     hits = list(scene_path.glob(f"measurement/*-{pol}-*.tiff"))
     return hits[0] if hits else None
 
-#frontend-facing wrapper for detect_scene() that returns a JSON-serializable dict
+# Frontend-facing wrapper for detect_scene() with the flat response shape the UI expects.
 
 def detect_scene_for_frontend(scene_path):
     """
@@ -150,8 +150,5 @@ def detect_scene_for_frontend(scene_path):
 
     result = detect_scene(scene_path)
 
-    return {
-        "success": True,
-        "data": result,
-    }
+    return result
 
