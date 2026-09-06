@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { MorphologicalProperties, SceneMetadata, Suspect } from '../../types';
+import { DetectionResponse } from '../../api/api';
 import {
   FileText,
   Download,
@@ -22,6 +23,7 @@ interface ExportViewProps {
   currentScene: SceneMetadata;
   detection: MorphologicalProperties;
   topSuspect: Suspect | null;
+  contract1: DetectionResponse | null;
   onOpenReportPreview: () => void;
 }
 
@@ -29,6 +31,7 @@ export const ExportView: React.FC<ExportViewProps> = ({
   currentScene,
   detection,
   topSuspect,
+  contract1,
   onOpenReportPreview
 }) => {
   const [copiedRef, setCopiedRef] = useState<boolean>(false);
@@ -57,7 +60,10 @@ export const ExportView: React.FC<ExportViewProps> = ({
           contrast_ratio_db: detection.contrastRatioDb, marangoni_damping: detection.dampingRatio,
           sensor: currentScene.satellite, acquisition_utc: currentScene.acquisition
         },
-        geometry: {
+        geometry: contract1 ? {
+          type: "Polygon",
+          coordinates: contract1.polygon
+        } : {
           type: "Polygon",
           coordinates: [[[currentScene.lon - 0.02, currentScene.lat - 0.01],[currentScene.lon + 0.01, currentScene.lat - 0.02],[currentScene.lon + 0.03, currentScene.lat + 0.01],[currentScene.lon - 0.01, currentScene.lat + 0.02],[currentScene.lon - 0.02, currentScene.lat - 0.01]]]
         }

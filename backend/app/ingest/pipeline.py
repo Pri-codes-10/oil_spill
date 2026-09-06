@@ -43,15 +43,28 @@ def use_model(predict_fn, name):
     MODEL, DETECTOR_NAME = predict_fn, name
 
 
-def synthetic_scene(size=1024, seed=0):
+def synthetic_scene(
+    size=1024,
+    seed=0,
+    cy_frac=0.55,
+    cx_frac=0.45,
+    theta=0.9,
+    length_frac=0.22,
+    width_frac=0.012,
+    contrast_db=9.0,
+):
     """Fabricates a dB array with one dark, elongated blob — for running the
     chain before a real SAFE product / trained model exists. NOT for judging
     detection quality; only for proving the pipeline executes end to end.
+
+    The blob's geometry/contrast are parametrized (not just the RNG seed) so
+    different demo scenes can be given genuinely different fabricated slicks
+    instead of all producing identical Contract 1 output.
     """
     rng = np.random.default_rng(seed)
     background = rng.normal(-12.0, 1.5, size=(size, size)).astype("float32")
     yy, xx = np.mgrid[0:size, 0:size]
-    cy, cx, theta = size * 0.55, size * 0.45, 0.9
+    cy, cx = size * cy_frac, size * cx_frac
     ux, uy = np.cos(theta), np.sin(theta)
     along = (xx - cx) * ux + (yy - cy) * uy
     across = -(xx - cx) * uy + (yy - cy) * ux
@@ -59,10 +72,39 @@ def synthetic_scene(size=1024, seed=0):
     # width approaches the local-threshold neighbourhood drags down its own
     # local mean, so the detector measures far less contrast than was injected
     # and the chain finds nothing. Real slicks are narrow ribbons anyway.
-    blob = (np.abs(along) < size * 0.22) & (np.abs(across) < size * 0.012)
-    background[blob] -= 9.0
+    blob = (np.abs(along) < size * length_frac) & (np.abs(across) < size * width_frac)
+    background[blob] -= contrast_db
     vh = background + rng.normal(0, 0.5, background.shape).astype("float32")
     return np.stack([background, vh], axis=-1)  # (H, W, 2) -> VV, VH
+
+
+# Per-demo-scene synthetic presets, keyed by the frontend's DEMO_SCENES id
+# (frontend/src/data.ts). Each gives the fabricated blob a distinct
+# position/angle/size/contrast AND anchors the affine transform near that
+# scene's real-world location, so the 4 demo cards stop producing identical
+# Contract 1 output while still clearly running on synthetic input.
+SYNTHETIC_SCENE_PRESETS = {
+    "north_sea": dict(
+        seed=0, cy_frac=0.55, cx_frac=0.45, theta=0.9,
+        length_frac=0.22, width_frac=0.012, contrast_db=9.0,
+        lon0=2.05, lat0=58.40,
+    ),
+    "panama_canal": dict(
+        seed=1, cy_frac=0.40, cx_frac=0.60, theta=2.4,
+        length_frac=0.16, width_frac=0.020, contrast_db=6.5,
+        lon0=-79.78, lat0=9.20,
+    ),
+    "gulf_mexico": dict(
+        seed=2, cy_frac=0.62, cx_frac=0.35, theta=0.3,
+        length_frac=0.30, width_frac=0.028, contrast_db=11.0,
+        lon0=-91.30, lat0=27.86,
+    ),
+    "mediterranean": dict(
+        seed=3, cy_frac=0.48, cx_frac=0.52, theta=1.6,
+        length_frac=0.12, width_frac=0.009, contrast_db=5.0,
+        lon0=14.82, lat0=36.47,
+    ),
+}
 
 
 def detect_scene(scene_path):
@@ -70,14 +112,20 @@ def detect_scene(scene_path):
     synthetic stand-in) and return CONTRACT 1.
 
     scene_path: path to a .SAFE product / .zip, OR the literal string
-                "synthetic" to run on a fabricated scene (day-1 testing).
+                "synthetic" (day-1 testing), OR one of
+                SYNTHETIC_SCENE_PRESETS' keys to fabricate a scene-specific
+                blob (frontend demo scene selection).
     """
-    scene_path = Path(scene_path) if str(scene_path) != "synthetic" else scene_path
+    preset_key = str(scene_path) if str(scene_path) in SYNTHETIC_SCENE_PRESETS else None
+    is_synthetic = str(scene_path) == "synthetic" or preset_key is not None
+    scene_path = Path(scene_path) if not is_synthetic else scene_path
 
-    if str(scene_path) == "synthetic":
+    if is_synthetic:
+        preset = SYNTHETIC_SCENE_PRESETS.get(preset_key or "north_sea", SYNTHETIC_SCENE_PRESETS["north_sea"])
+        blob_params = {k: v for k, v in preset.items() if k not in ("lon0", "lat0")}
         meta = {"start_time": utc(datetime.now(timezone.utc))}
-        img = synthetic_scene()
-        transform = _synthetic_transform(img.shape[0], img.shape[1])
+        img = synthetic_scene(**blob_params)
+        transform = _synthetic_transform(img.shape[0], img.shape[1], lon0=preset["lon0"], lat0=preset["lat0"])
     elif scene_path.suffix.lower() in {".tif", ".tiff"}:
         meta = {"start_time": datetime.fromtimestamp(
             scene_path.stat().st_mtime,
@@ -131,12 +179,14 @@ def detect_scene(scene_path):
     return geometry.build_contract1(poly, meta["start_time"], confidence, DETECTOR_NAME)
 
 
-def _synthetic_transform(h, w):
-    """A plausible affine for the synthetic scene — offshore Eastern Mediterranean,
-    matching the ESSD reference dataset's region, purely so map previews look sane."""
+def _synthetic_transform(h, w, lon0=33.0, lat0=32.6):
+    """A plausible affine for the synthetic scene, anchored at (lon0, lat0) —
+    defaults to offshore Eastern Mediterranean (matching the ESSD reference
+    dataset's region), but a demo-scene preset can anchor elsewhere so the
+    detected centroid lands near the location its scene card claims."""
     from affine import Affine
     deg_per_px = 0.09 / max(h, w)
-    return Affine(deg_per_px, 0, 33.0, 0, -deg_per_px, 32.6)
+    return Affine(deg_per_px, 0, lon0, 0, -deg_per_px, lat0)
 
 
 def _find_measurement_tiff(scene_path, pol):

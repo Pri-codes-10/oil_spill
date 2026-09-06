@@ -92,7 +92,7 @@ export const IngestView: React.FC<IngestViewProps> = ({
 
     const result = file
       ? await uploadScene(file)
-      : await detectScene("synthetic");
+      : await detectScene(scene.id);
 
     console.log("INGEST BACKEND RESULT:", result);
 
