@@ -271,7 +271,6 @@ export const INITIAL_GIS_LAYERS: GisLayers = {
   predictedMaskOpacity: 85,
   confidenceHeatmap: false,
   oceanCurrents: false,
-  windBarbs: false,
   aisTracks: true,
   originEstimate: false
 };

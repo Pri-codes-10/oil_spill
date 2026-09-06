@@ -51,7 +51,6 @@ export interface GisLayers {
   predictedMaskOpacity: number;
   confidenceHeatmap: boolean;
   oceanCurrents: boolean;
-  windBarbs: boolean;
   aisTracks: boolean;
   originEstimate: boolean;
 }

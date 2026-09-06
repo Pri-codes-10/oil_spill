@@ -104,11 +104,14 @@ export default function App() {
           )}
 
           {activeTab === 'map' && (
-            <MapView 
+            <MapView
               currentScene={currentScene}
               activeDetection={detection}
               gisLayers={gisLayers}
               setGisLayers={setGisLayers}
+              contract1={contract1}
+              corridor={corridor}
+              topSuspect={topSuspect}
               onSelectDetection={(selectedDet) => {
                 if (selectedDet) setDetection(selectedDet);
                 setActiveTab('detection');

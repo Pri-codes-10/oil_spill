@@ -1,5 +1,7 @@
-import React, { useState, useRef } from 'react';
-import { GisLayers, MorphologicalProperties, SceneMetadata } from '../../types';
+import React, { useState, useRef, useMemo } from 'react';
+import { CorridorResponse, GisLayers, MorphologicalProperties, SceneMetadata, Suspect } from '../../types';
+import { DetectionResponse } from '../../api/api';
+import { projectPoints } from '../../utils/geoProjection';
 import {
   Layers,
   Crosshair,
@@ -7,7 +9,6 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
-  Wind,
   ExternalLink,
   Eye,
   EyeOff
@@ -19,6 +20,9 @@ interface MapViewProps {
   activeDetection?: MorphologicalProperties;
   gisLayers: GisLayers;
   setGisLayers: React.Dispatch<React.SetStateAction<GisLayers>>;
+  contract1: DetectionResponse | null;
+  corridor: CorridorResponse | null;
+  topSuspect: Suspect | null;
   onSelectDetection?: (detection?: MorphologicalProperties) => void;
 }
 
@@ -27,6 +31,9 @@ export const MapView: React.FC<MapViewProps> = ({
   activeDetection,
   gisLayers,
   setGisLayers,
+  contract1,
+  corridor,
+  topSuspect,
   onSelectDetection
 }) => {
   const [zoomLevel, setZoomLevel] = useState<number>(1);
@@ -41,6 +48,29 @@ export const MapView: React.FC<MapViewProps> = ({
   const [hoveredSlick, setHoveredSlick] = useState<boolean>(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Real-geometry projector — same pattern as DriftView/SuspectsView. Only
+  // available once a corridor has actually been fetched (Drift stage run).
+  const projector = useMemo(() => {
+    if (!corridor || !contract1) return null;
+    const points = [
+      { lat: contract1.centroid[1], lon: contract1.centroid[0] },
+      ...corridor.corridor.map(n => ({ lat: n.lat, lon: n.lon })),
+    ];
+    return projectPoints(points);
+  }, [corridor, contract1]);
+
+  // Oldest corridor node = furthest-back estimated origin, with its own
+  // uncertainty radius — the real equivalent of "Origin Ellipse".
+  const oldestNode = useMemo(() => {
+    if (!corridor) return null;
+    return corridor.corridor.reduce((oldest, n) =>
+      n.hours_ago > oldest.hours_ago ? n : oldest, corridor.corridor[0]);
+  }, [corridor]);
+  const maxRadiusKm = useMemo(() => {
+    if (!corridor) return 1;
+    return Math.max(...corridor.corridor.map(n => n.radius_km));
+  }, [corridor]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.target instanceof SVGElement || e.target instanceof HTMLImageElement || (e.target as HTMLElement).id === 'map-canvas-container') {
@@ -84,21 +114,23 @@ export const MapView: React.FC<MapViewProps> = ({
 
   /* Helper to build checkbox row for layer panel */
   const LayerRow = ({
-    label, checked, onChange, colorDot, icon
+    label, checked, onChange, colorDot, icon, disabled, disabledReason
   }: {
     label: string; checked: boolean; onChange: (v: boolean) => void;
-    colorDot?: string; icon?: React.ReactNode;
+    colorDot?: string; icon?: React.ReactNode; disabled?: boolean; disabledReason?: string;
   }) => (
     <div
-      className="flex items-center gap-2.5 px-2 py-1.5 rounded cursor-pointer transition-colors"
-      style={{ background: checked ? 'var(--gov-navy-light)' : 'transparent' }}
+      className="flex items-center gap-2.5 px-2 py-1.5 rounded transition-colors"
+      style={{ background: checked && !disabled ? 'var(--gov-navy-light)' : 'transparent', opacity: disabled ? 0.5 : 1 }}
+      title={disabled ? disabledReason : undefined}
     >
-      <label className="flex items-center gap-2.5 cursor-pointer w-full">
+      <label className={`flex items-center gap-2.5 w-full ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
         <input
           type="checkbox"
           checked={checked}
+          disabled={disabled}
           onChange={e => onChange(e.target.checked)}
-          className="h-4 w-4 cursor-pointer"
+          className="h-4 w-4 cursor-pointer disabled:cursor-not-allowed"
           style={{ accentColor: 'var(--gov-navy)' }}
         />
         {colorDot && <span className="w-3 h-3 rounded-sm shrink-0" style={{ background: colorDot, border: '1px solid rgba(0,0,0,0.2)' }} />}
@@ -135,35 +167,26 @@ export const MapView: React.FC<MapViewProps> = ({
           }}
         />
 
-        {/* Ocean Currents */}
-        {gisLayers.oceanCurrents && (
-          <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-50" viewBox="0 0 1000 800">
-            <g stroke="#ffb95f" strokeWidth="1" fill="none" strokeDasharray="3 5">
-              <path d="M 100 100 Q 300 150 500 120 T 900 160" />
-              <path d="M 80 250 Q 280 290 480 260 T 880 300" />
-              <path d="M 120 400 Q 320 440 520 410 T 920 450" />
-              <path d="M 60 550 Q 260 600 460 570 T 860 610" />
-              <path d="M 100 700 Q 300 740 500 710 T 900 750" />
-            </g>
+        {/* Drift Corridor Path — real backward-hindcast nodes from /api/drift/corridor,
+            same geometry DriftView renders. Only drawn once that stage has run. */}
+        {gisLayers.oceanCurrents && projector && corridor && contract1 && (
+          <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-70" viewBox="0 0 1000 800" preserveAspectRatio="none">
+            {(() => {
+              const origin = projector({ lat: contract1.centroid[1], lon: contract1.centroid[0] });
+              const nodePoints = corridor.corridor.map(n => projector({ lat: n.lat, lon: n.lon }));
+              const pathD = [origin, ...nodePoints]
+                .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
+                .join(' ');
+              return (
+                <g stroke="#ffb95f" strokeWidth="1.5" fill="none" strokeDasharray="3 5">
+                  <path d={pathD} />
+                  {nodePoints.map((p, idx) => (
+                    <circle key={idx} cx={p.x} cy={p.y} r="2.5" fill="#ffb95f" stroke="none" />
+                  ))}
+                </g>
+              );
+            })()}
           </svg>
-        )}
-
-        {/* Wind Barbs */}
-        {gisLayers.windBarbs && (
-          <div className="absolute inset-0 w-full h-full pointer-events-none opacity-60">
-            <div className="absolute top-[20%] left-[25%] flex items-center gap-1 text-[#bacac5] font-mono text-[10px]">
-              <Wind className="w-4 h-4 text-[#859490] rotate-45" /> 14 kt NW
-            </div>
-            <div className="absolute top-[35%] left-[65%] flex items-center gap-1 text-[#bacac5] font-mono text-[10px]">
-              <Wind className="w-4 h-4 text-[#859490] rotate-45" /> 16 kt NW
-            </div>
-            <div className="absolute top-[65%] left-[35%] flex items-center gap-1 text-[#bacac5] font-mono text-[10px]">
-              <Wind className="w-4 h-4 text-[#859490]" /> 15 kt NW
-            </div>
-            <div className="absolute top-[75%] left-[75%] flex items-center gap-1 text-[#bacac5] font-mono text-[10px]">
-              <Wind className="w-4 h-4 text-[#859490] rotate-45" /> 18 kt NW
-            </div>
-          </div>
         )}
 
         {/* Confidence Heatmap */}
@@ -191,20 +214,39 @@ export const MapView: React.FC<MapViewProps> = ({
             </radialGradient>
           </defs>
 
-          {gisLayers.aisTracks && (
-            <g>
-              <path d="M 120 620 Q 300 520 510 400 T 880 220" fill="none" stroke="rgba(255,185,95,0.75)" strokeDasharray="5 5" strokeWidth="1.5" />
-              <path d="M 220 700 Q 420 580 620 460 T 920 340" fill="none" stroke="rgba(133,148,144,0.4)" strokeDasharray="4 6" strokeWidth="1" />
-            </g>
-          )}
+          {/* Suspect Vessel Position — a single real point for the top-ranked
+              suspect, placed at the corridor node its fits_hours_ago matches
+              (same lookup SuspectsView uses). No fabricated track polyline. */}
+          {gisLayers.aisTracks && topSuspect && corridor && projector && (() => {
+            const node = corridor.corridor.find(n => n.hours_ago === topSuspect.fits_hours_ago);
+            if (!node) return null;
+            const p = projector({ lat: node.lat, lon: node.lon });
+            return (
+              <g>
+                <circle cx={p.x} cy={p.y} r="14" fill="none" stroke="#ffb95f" strokeWidth="1.5" opacity="0.6" />
+                <circle cx={p.x} cy={p.y} r="4" fill="#ffb95f" />
+                <text x={p.x + 12} y={p.y - 10} fill="#ffb95f" fontFamily="IBM Plex Mono" fontSize="11">
+                  {topSuspect.name} (T-{node.hours_ago}h)
+                </text>
+              </g>
+            );
+          })()}
 
-          {gisLayers.originEstimate && (
-            <g>
-              <circle cx="280" cy="530" r="28" fill="none" stroke="#ffb4ab" strokeWidth="1.5" strokeDasharray="3 3" />
-              <circle cx="280" cy="530" r="3" fill="#ffb4ab" />
-              <text x="295" y="535" fill="#ffb4ab" fontFamily="IBM Plex Mono" fontSize="11">EST. ORIGIN (T-14h)</text>
-            </g>
-          )}
+          {/* Origin Estimate — the oldest (furthest-back) real corridor node,
+              radius scaled from its actual radius_km. */}
+          {gisLayers.originEstimate && oldestNode && projector && (() => {
+            const p = projector({ lat: oldestNode.lat, lon: oldestNode.lon });
+            const r = 6 + (oldestNode.radius_km / maxRadiusKm) * 26;
+            return (
+              <g>
+                <circle cx={p.x} cy={p.y} r={r} fill="none" stroke="#ffb4ab" strokeWidth="1.5" strokeDasharray="3 3" />
+                <circle cx={p.x} cy={p.y} r="3" fill="#ffb4ab" />
+                <text x={p.x + 15} y={p.y + 5} fill="#ffb4ab" fontFamily="IBM Plex Mono" fontSize="11">
+                  EST. ORIGIN (T-{oldestNode.hours_ago}h)
+                </text>
+              </g>
+            );
+          })()}
 
           {gisLayers.predictedMask && (
             <g id="slick-polygons-layer">
@@ -302,10 +344,30 @@ export const MapView: React.FC<MapViewProps> = ({
             </div>
 
             <LayerRow label="Confidence Heatmap" checked={gisLayers.confidenceHeatmap} onChange={v => setGisLayers({ ...gisLayers, confidenceHeatmap: v })} colorDot="#C62828" />
-            <LayerRow label="Ocean Currents (HYCOM)" checked={gisLayers.oceanCurrents} onChange={v => setGisLayers({ ...gisLayers, oceanCurrents: v })} colorDot="#FF9933" />
-            <LayerRow label="Wind Vectors (GFS)" checked={gisLayers.windBarbs} onChange={v => setGisLayers({ ...gisLayers, windBarbs: v })} icon={<Wind className="w-3 h-3 shrink-0" style={{ color: '#718096' }} />} />
-            <LayerRow label="AIS Vessel Trajectories" checked={gisLayers.aisTracks} onChange={v => setGisLayers({ ...gisLayers, aisTracks: v })} colorDot="#FF9933" />
-            <LayerRow label="Origin Ellipse (T-14h)" checked={gisLayers.originEstimate} onChange={v => setGisLayers({ ...gisLayers, originEstimate: v })} icon={<Crosshair className="w-3 h-3 shrink-0" style={{ color: '#C62828' }} />} />
+            <LayerRow
+              label={`Drift Corridor Path (${corridor?.field_source ?? 'n/a'})`}
+              checked={gisLayers.oceanCurrents}
+              onChange={v => setGisLayers({ ...gisLayers, oceanCurrents: v })}
+              colorDot="#FF9933"
+              disabled={!corridor}
+              disabledReason="Run Drift analysis first to fetch a real corridor"
+            />
+            <LayerRow
+              label="Suspect Vessel Position"
+              checked={gisLayers.aisTracks}
+              onChange={v => setGisLayers({ ...gisLayers, aisTracks: v })}
+              colorDot="#FF9933"
+              disabled={!topSuspect}
+              disabledReason="Run Suspect matching first to identify a top suspect"
+            />
+            <LayerRow
+              label="Origin Estimate"
+              checked={gisLayers.originEstimate}
+              onChange={v => setGisLayers({ ...gisLayers, originEstimate: v })}
+              icon={<Crosshair className="w-3 h-3 shrink-0" style={{ color: '#C62828' }} />}
+              disabled={!corridor}
+              disabledReason="Run Drift analysis first to fetch a real corridor"
+            />
 
             {/* Inspect button */}
             <button
