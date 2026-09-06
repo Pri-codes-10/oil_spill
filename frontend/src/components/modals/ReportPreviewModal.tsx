@@ -34,11 +34,11 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
   const handleDownload = () => { alert("Report PDF compilation prepared. Initialising print-to-PDF..."); window.print(); };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 select-none" style={{ background: 'rgba(0,0,0,0.55)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 select-none" style={{ background: 'rgba(0,0,0,0.65)' }}>
       <div
         className="w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden shadow-2xl"
         style={{
-          background: '#ffffff',
+          background: 'var(--gov-surface)',
           border: '1px solid var(--gov-border)',
           borderRadius: '2px'
         }}
@@ -150,7 +150,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div
                 className="p-4 space-y-2 font-mono text-xs"
-                style={{ background: '#F5F6F8', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
+                style={{ background: 'var(--gov-surface-alt)', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
               >
                 {[
                   ['Target ID:', `${detection.id}: ${detection.title}`, 'var(--gov-navy)'],
@@ -192,7 +192,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
             </h2>
             <div
               className="p-4 space-y-2 font-mono text-xs"
-              style={{ background: '#F5F6F8', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
+              style={{ background: 'var(--gov-surface-alt)', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
             >
               {[
                 ['Temporal Origin Window:', '14:00 – 18:00 UTC (T-14h)', 'var(--gov-saffron-dim)'],
@@ -219,7 +219,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
             </h2>
             <div
               className="p-4 space-y-3 font-mono text-xs"
-              style={{ background: '#F5F6F8', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
+              style={{ background: 'var(--gov-surface-alt)', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
             >
               <div className="flex justify-between items-center pb-2.5" style={{ borderBottom: '1px solid var(--gov-border)' }}>
                 <div>

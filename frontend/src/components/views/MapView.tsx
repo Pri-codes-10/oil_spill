@@ -258,12 +258,12 @@ export const MapView: React.FC<MapViewProps> = ({
       <div
         id="gis-layers-panel"
         className={`absolute top-4 left-4 z-30 flex flex-col shadow-lg transition-all duration-200 overflow-hidden ${isLayersPanelCollapsed ? 'w-44' : 'w-72'}`}
-        style={{ background: '#ffffff', border: '1px solid var(--gov-border)', borderTop: '3px solid var(--gov-navy)', borderRadius: '2px' }}
+        style={{ background: 'var(--gov-surface)', border: '1px solid var(--gov-border)', borderTop: '3px solid var(--gov-navy)', borderRadius: '2px' }}
       >
         {/* Panel header */}
         <div
           className="px-3 py-2.5 flex justify-between items-center"
-          style={{ background: '#EEF0F7', borderBottom: '1px solid var(--gov-border)' }}
+          style={{ background: 'var(--gov-surface-alt)', borderBottom: '1px solid var(--gov-border)' }}
         >
           <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--gov-navy)' }}>
             <Layers className="w-3.5 h-3.5" style={{ color: 'var(--gov-saffron)' }} />
@@ -330,11 +330,11 @@ export const MapView: React.FC<MapViewProps> = ({
       <div className="absolute bottom-4 left-4 z-20 pointer-events-none">
         <div
           className="flex flex-col gap-1 items-start px-3 py-2"
-          style={{ background: 'rgba(255,255,255,0.92)', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
+          style={{ background: 'var(--gov-surface)', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
         >
           <div className="font-mono text-[10px]" style={{ color: 'var(--gov-text-secondary)' }}>10 NM (18.5 km)</div>
-          <div className="flex h-1.5 w-28" style={{ border: '1px solid #9CA3AF', borderTop: 'none' }}>
-            <div className="w-1/2 h-full" style={{ background: 'var(--gov-navy)', borderRight: '1px solid #9CA3AF' }} />
+          <div className="flex h-1.5 w-28" style={{ border: '1px solid var(--gov-border-strong)', borderTop: 'none' }}>
+            <div className="w-1/2 h-full" style={{ background: 'var(--gov-navy)', borderRight: '1px solid var(--gov-border-strong)' }} />
           </div>
         </div>
       </div>
@@ -343,7 +343,7 @@ export const MapView: React.FC<MapViewProps> = ({
       <div
         id="coordinate-display"
         className="absolute bottom-4 right-4 z-20 flex items-center gap-2 px-4 py-2 pointer-events-none"
-        style={{ background: 'rgba(255,255,255,0.92)', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
+        style={{ background: 'var(--gov-surface)', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
       >
         <span className="w-2 h-2 rounded-full inline-block" style={{ background: 'var(--gov-green)' }} />
         <span className="font-mono text-xs font-semibold" style={{ color: 'var(--gov-navy)' }}>

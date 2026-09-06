@@ -19,11 +19,11 @@ export const OperatorModal: React.FC<OperatorModalProps> = ({ isOpen, onClose })
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 select-none" style={{ background: 'rgba(0,0,0,0.5)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 select-none" style={{ background: 'rgba(0,0,0,0.6)' }}>
       <div
         className="w-full max-w-md flex flex-col overflow-hidden shadow-2xl"
         style={{
-          background: '#ffffff',
+          background: 'var(--gov-surface)',
           border: '1px solid var(--gov-border)',
           borderTop: '4px solid var(--gov-navy)',
           borderRadius: '2px'
@@ -32,7 +32,7 @@ export const OperatorModal: React.FC<OperatorModalProps> = ({ isOpen, onClose })
         {/* Header */}
         <div
           className="px-5 py-4 flex items-center justify-between"
-          style={{ background: '#EEF0F7', borderBottom: '1px solid var(--gov-border)' }}
+          style={{ background: 'var(--gov-surface-alt)', borderBottom: '1px solid var(--gov-border)' }}
         >
           <div className="flex items-center gap-2">
             <UserCheck className="w-5 h-5" style={{ color: 'var(--gov-navy)' }} />
@@ -119,7 +119,7 @@ export const OperatorModal: React.FC<OperatorModalProps> = ({ isOpen, onClose })
                 className="flex justify-between py-2.5 px-4 font-mono"
                 style={{
                   borderBottom: idx < 3 ? '1px solid var(--gov-border)' : 'none',
-                  background: idx % 2 === 0 ? '#F5F6F8' : '#ffffff'
+                  background: idx % 2 === 0 ? 'var(--gov-surface-alt)' : 'transparent'
                 }}
               >
                 <span className="flex items-center gap-1.5" style={{ color: 'var(--gov-text-secondary)' }}>
@@ -137,7 +137,7 @@ export const OperatorModal: React.FC<OperatorModalProps> = ({ isOpen, onClose })
         {/* Footer */}
         <div
           className="px-5 py-3 flex justify-end"
-          style={{ background: '#EEF0F7', borderTop: '1px solid var(--gov-border)' }}
+          style={{ background: 'var(--gov-surface-alt)', borderTop: '1px solid var(--gov-border)' }}
         >
           <button
             onClick={onClose}

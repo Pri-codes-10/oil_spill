@@ -1,5 +1,10 @@
 import { EnvironmentalInputs, GisLayers, MorphologicalProperties, OperationNotification, SceneMetadata, VesselSuspect } from './types';
 import logo from './assets/logo_aqua.svg';
+import spillTraceBg from './assets/spilltrace_bg.jpg';
+import backgroundDark from './assets/background_dark.jpg';
+
+export const APP_BACKGROUND = spillTraceBg; 
+export const APP_BACKGROUND_DARK = backgroundDark;
 export const APP_LOGO = logo;
 export const DEMO_SCENES: SceneMetadata[] = [
   {

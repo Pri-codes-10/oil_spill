@@ -60,12 +60,12 @@ export const SuspectsView: React.FC<SuspectsViewProps> = ({
       <section
         id="suspects-list-panel"
         className="w-full sm:w-[380px] h-full flex flex-col shrink-0 z-20"
-        style={{ background: '#ffffff', borderRight: '1px solid var(--gov-border)' }}
+        style={{ background: 'var(--gov-surface)', borderRight: '1px solid var(--gov-border)' }}
       >
         {/* Panel header */}
         <div
           className="p-4 flex flex-col gap-3"
-          style={{ background: '#EEF0F7', borderBottom: '3px solid var(--gov-navy)' }}
+          style={{ background: 'var(--gov-surface-alt)', borderBottom: '3px solid var(--gov-navy)' }}
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--gov-navy)' }}>
@@ -83,7 +83,7 @@ export const SuspectsView: React.FC<SuspectsViewProps> = ({
                   onClick={() => setFilterStage(opt.id)}
                   className="px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer"
                   style={{
-                    background: filterStage === opt.id ? 'var(--gov-navy)' : '#ffffff',
+                    background: filterStage === opt.id ? 'var(--gov-navy)' : 'var(--gov-surface)',
                     color: filterStage === opt.id ? '#ffffff' : 'var(--gov-text-secondary)',
                     border: '1px solid var(--gov-border)',
                     borderRadius: '2px'
@@ -116,7 +116,7 @@ export const SuspectsView: React.FC<SuspectsViewProps> = ({
                 onClick={() => { setSelectedSuspect(vessel); setIsProfileOpen(true); }}
                 className="p-3.5 cursor-pointer transition-colors"
                 style={{
-                  background: isSelected ? 'var(--gov-navy-light)' : '#F5F6F8',
+                  background: isSelected ? 'var(--gov-navy-light)' : 'var(--gov-surface-alt)',
                   border: isSelected ? '1px solid var(--gov-navy)' : '1px solid var(--gov-border)',
                   borderLeft: isSelected ? '3px solid var(--gov-navy)' : '1px solid var(--gov-border)',
                   borderRadius: '2px'
@@ -135,7 +135,7 @@ export const SuspectsView: React.FC<SuspectsViewProps> = ({
                   <div
                     className="font-mono text-xs px-2 py-0.5 font-bold"
                     style={{
-                      background: vessel.rank === 1 ? 'var(--gov-green)' : '#ffffff',
+                      background: vessel.rank === 1 ? 'var(--gov-green)' : 'var(--gov-surface)',
                       color: vessel.rank === 1 ? '#ffffff' : 'var(--gov-text-secondary)',
                       border: `1px solid ${vessel.rank === 1 ? 'var(--gov-green)' : 'var(--gov-border)'}`,
                       borderRadius: '2px'
@@ -155,7 +155,7 @@ export const SuspectsView: React.FC<SuspectsViewProps> = ({
                   <span className="font-mono text-xs font-bold w-8 text-right" style={{ color: scoreColor }}>
                     {vessel.score}%
                   </span>
-                  <div className="flex-1 h-2 rounded-sm overflow-hidden" style={{ background: '#E2E8F0' }}>
+                  <div className="flex-1 h-2 rounded-sm overflow-hidden" style={{ background: 'var(--gov-border)' }}>
                     <div
                       className="h-full transition-all duration-300"
                       style={{ width: `${vessel.score}%`, background: scoreColor, borderRadius: '1px' }}
@@ -170,7 +170,7 @@ export const SuspectsView: React.FC<SuspectsViewProps> = ({
         {/* Export action */}
         <div
           className="p-4"
-          style={{ borderTop: '1px solid var(--gov-border)', background: '#F5F6F8' }}
+          style={{ borderTop: '1px solid var(--gov-border)', background: 'var(--gov-surface-alt)' }}
         >
           <button
             onClick={onProceedToExport}
@@ -211,20 +211,20 @@ export const SuspectsView: React.FC<SuspectsViewProps> = ({
             <path d="M 180 180 Q 320 280 480 340 T 780 460" fill="none" stroke="#9CA3AF" strokeDasharray="4 4" strokeWidth="1.5" opacity="0.6" />
 
             {/* Slick origin */}
-            <ellipse cx="510" cy="400" rx="35" ry="18" fill="rgba(0,0,128,0.12)" stroke="#000080" strokeWidth="1.5" strokeDasharray="3 3" />
-            <circle cx="510" cy="400" r="3" fill="#000080" />
-            <text x="525" y="405" fill="#000080" fontFamily="IBM Plex Mono" fontSize="11" fontWeight="600">ESTIMATED ORIGIN</text>
+            <ellipse cx="510" cy="400" rx="35" ry="18" fill="var(--gov-navy-light)" stroke="var(--gov-navy)" strokeWidth="1.5" strokeDasharray="3 3" />
+            <circle cx="510" cy="400" r="3" fill="var(--gov-navy)" />
+            <text x="525" y="405" fill="var(--gov-navy)" fontFamily="IBM Plex Mono" fontSize="11" fontWeight="600">ESTIMATED ORIGIN</text>
 
             {/* Active vessel track */}
-            <path d="M 250 150 Q 400 300 510 400 T 800 450" fill="none" stroke="#000080" strokeWidth="3.5" className="map-glow" />
-            <circle cx="250" cy="150" r="3.5" fill="#000080" />
-            <circle cx="400" cy="300" r="3.5" fill="#000080" />
-            <circle cx="510" cy="400" r="5" fill="#FF9933" stroke="#ffffff" strokeWidth="1.5" />
-            <circle cx="650" cy="425" r="3.5" fill="#000080" />
-            <circle cx="800" cy="450" r="6" fill="#138808" className="animate-ping" />
-            <circle cx="800" cy="450" r="5" fill="#138808" />
-            <circle cx="800" cy="450" r="14" fill="none" stroke="#138808" strokeWidth="1.5" opacity="0.6" />
-            <text x="818" y="455" fill="#138808" fontFamily="IBM Plex Mono" fontSize="12" fontWeight="700">
+            <path d="M 250 150 Q 400 300 510 400 T 800 450" fill="none" stroke="var(--gov-navy)" strokeWidth="3.5" className="map-glow" />
+            <circle cx="250" cy="150" r="3.5" fill="var(--gov-navy)" />
+            <circle cx="400" cy="300" r="3.5" fill="var(--gov-navy)" />
+            <circle cx="510" cy="400" r="5" fill="var(--gov-saffron)" stroke="#ffffff" strokeWidth="1.5" />
+            <circle cx="650" cy="425" r="3.5" fill="var(--gov-navy)" />
+            <circle cx="800" cy="450" r="6" fill="var(--gov-green)" className="animate-ping" />
+            <circle cx="800" cy="450" r="5" fill="var(--gov-green)" />
+            <circle cx="800" cy="450" r="14" fill="none" stroke="var(--gov-green)" strokeWidth="1.5" opacity="0.6" />
+            <text x="818" y="455" fill="var(--gov-green)" fontFamily="IBM Plex Mono" fontSize="12" fontWeight="700">
               {selectedSuspect.name} (LIVE FIX)
             </text>
           </svg>
@@ -235,7 +235,7 @@ export const SuspectsView: React.FC<SuspectsViewProps> = ({
               id="attribution-matrix-popover"
               className="absolute top-4 right-4 w-80 p-4 z-30 shadow-lg"
               style={{
-                background: '#ffffff',
+                background: 'var(--gov-surface)',
                 border: '1px solid var(--gov-border)',
                 borderTop: '3px solid var(--gov-navy)',
                 borderRadius: '2px'
@@ -266,7 +266,7 @@ export const SuspectsView: React.FC<SuspectsViewProps> = ({
                       <span>{row.label}</span>
                       <span className="font-semibold" style={{ color: row.color }}>{row.value}%</span>
                     </div>
-                    <div className="w-full h-1.5 rounded-sm overflow-hidden" style={{ background: '#E2E8F0' }}>
+                    <div className="w-full h-1.5 rounded-sm overflow-hidden" style={{ background: 'var(--gov-border)' }}>
                       <div className="h-full" style={{ width: `${row.value}%`, background: row.color, borderRadius: '1px' }} />
                     </div>
                   </div>
@@ -291,12 +291,12 @@ export const SuspectsView: React.FC<SuspectsViewProps> = ({
           <div
             id="vessel-profile-drawer"
             className="h-60 shrink-0 flex flex-col z-30 shadow-lg"
-            style={{ background: '#ffffff', borderTop: '3px solid var(--gov-navy)' }}
+            style={{ background: 'var(--gov-surface)', borderTop: '3px solid var(--gov-navy)' }}
           >
             {/* Drawer header */}
             <div
               className="px-5 py-2.5 flex justify-between items-center"
-              style={{ background: '#EEF0F7', borderBottom: '1px solid var(--gov-border)' }}
+              style={{ background: 'var(--gov-surface-alt)', borderBottom: '1px solid var(--gov-border)' }}
             >
               <div className="flex items-center gap-3">
                 <span className="text-xs font-bold uppercase tracking-wide flex items-center gap-2" style={{ color: 'var(--gov-navy)' }}>
@@ -327,7 +327,7 @@ export const SuspectsView: React.FC<SuspectsViewProps> = ({
               {/* Speed Chart */}
               <div
                 className="flex-1 flex flex-col h-full p-3"
-                style={{ border: '1px solid var(--gov-border)', borderRadius: '2px', background: '#F5F6F8' }}
+                style={{ border: '1px solid var(--gov-border)', borderRadius: '2px', background: 'var(--gov-surface-alt)' }}
               >
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--gov-text-secondary)' }}>
@@ -347,7 +347,7 @@ export const SuspectsView: React.FC<SuspectsViewProps> = ({
                       <div
                         className="absolute -top-7 opacity-0 group-hover:opacity-100 px-2 py-0.5 font-mono text-[10px] whitespace-nowrap pointer-events-none z-20 shadow"
                         style={{
-                          background: '#ffffff',
+                          background: 'var(--gov-surface)',
                           border: '1px solid var(--gov-border)',
                           color: 'var(--gov-text-primary)',
                           borderRadius: '2px'
@@ -372,7 +372,7 @@ export const SuspectsView: React.FC<SuspectsViewProps> = ({
               {/* AIS Ping Timeline */}
               <div
                 className="flex-1 flex flex-col h-full p-3"
-                style={{ border: '1px solid var(--gov-border)', borderRadius: '2px', background: '#F5F6F8' }}
+                style={{ border: '1px solid var(--gov-border)', borderRadius: '2px', background: 'var(--gov-surface-alt)' }}
               >
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--gov-text-secondary)' }}>

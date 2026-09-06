@@ -10,7 +10,9 @@ import {
   Info,
   CheckCircle2,
   X,
-  ChevronDown
+  ChevronDown,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 interface TopAppBarProps {
@@ -21,6 +23,8 @@ interface TopAppBarProps {
   notifications: OperationNotification[];
   setNotifications: React.Dispatch<React.SetStateAction<OperationNotification[]>>;
   onOpenHelp: () => void;
+  theme?: 'light' | 'dark';
+  toggleTheme?: () => void;
 }
 
 
@@ -31,7 +35,9 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
   setSearchQuery,
   notifications,
   setNotifications,
-  onOpenHelp
+  onOpenHelp,
+  theme = 'light',
+  toggleTheme
 }) => {
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -64,8 +70,8 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
   return (
     <header
       id="top-app-bar"
-      className="fixed top-0 left-0 w-full z-40"
-      style={{ background: '#ffffff', borderBottom: '1px solid #D1D5DB' }}
+      className="fixed top-0 left-0 w-full z-40 transition-colors"
+      style={{ background: 'var(--gov-surface)', borderBottom: '1px solid var(--gov-border)' }}
     >
       {/* Tricolour stripe at very top */}
       <div className="gov-saffron-stripe w-full" />
@@ -88,15 +94,9 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
           <div className="flex flex-col leading-tight">
             <span
               className="font-bold tracking-tight"
-              style={{ color: 'var(--gov-navy)', fontFamily: 'var(--font-gov)',fontSize:'22px' }}
+              style={{ color: 'var(--gov-navy)', fontFamily: 'var(--font-gov)', fontSize: '22px' }}
             >
               SpillTrace
-            </span>
-            <span
-              className="text-[10px] font-medium"
-              style={{ color: 'var(--gov-text-secondary)', letterSpacing: '0.04em' }}
-            >
-              Government of India Maritime Surveillance Initiative
             </span>
           </div>
         </div>
@@ -104,7 +104,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
         {/* Centre: Stage breadcrumb */}
         <div
           className="hidden md:flex items-center gap-2 px-4 py-1.5 rounded"
-          style={{ background: 'var(--gov-navy-light)', border: '1px solid #C5CAE9' }}
+          style={{ background: 'var(--gov-navy-light)', border: '1px solid var(--gov-border)' }}
         >
           <span
             className="text-xs font-semibold"
@@ -114,7 +114,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
           </span>
         </div>
 
-        {/* Right: Search + Notifications + Help */}
+        {/* Right: Search + Notifications + Theme Toggle + Help */}
         <div className="flex items-center gap-2">
 
           {/* Search bar */}
@@ -126,10 +126,10 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search vessels, incidents..."
-              className="pl-8 pr-3 py-1.5 text-xs rounded w-52"
+              className="pl-8 pr-3 py-1.5 text-md rounded-2xl w-100"
               style={{
-                background: '#F5F6F8',
-                border: '1.5px solid #CBD5E0',
+                background: 'var(--gov-surface-alt)',
+                border: '1.5px solid var(--gov-border)',
                 color: 'var(--gov-text-primary)',
                 fontFamily: 'var(--font-gov)',
                 outline: 'none'
@@ -144,8 +144,8 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
               onClick={() => setShowNotifications(!showNotifications)}
               className="relative flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors"
               style={{
-                background: showNotifications ? 'var(--gov-navy-light)' : '#F5F6F8',
-                border: '1px solid #CBD5E0',
+                background: showNotifications ? 'var(--gov-navy-light)' : 'var(--gov-surface-alt)',
+                border: '1px solid var(--gov-border)',
                 color: 'var(--gov-text-secondary)',
                 cursor: 'pointer'
               }}
@@ -169,7 +169,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
                 id="notifications-panel"
                 className="absolute right-0 top-10 w-80 z-50 shadow-xl"
                 style={{
-                  background: '#ffffff',
+                  background: 'var(--gov-surface)',
                   border: '1px solid var(--gov-border)',
                   borderTop: '3px solid var(--gov-navy)',
                   borderRadius: '2px'
@@ -178,7 +178,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
                 {/* Dropdown header */}
                 <div
                   className="flex items-center justify-between px-4 py-2.5"
-                  style={{ background: '#F0F2F5', borderBottom: '1px solid var(--gov-border)' }}
+                  style={{ background: 'var(--gov-surface-alt)', borderBottom: '1px solid var(--gov-border)' }}
                 >
                   <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--gov-navy)' }}>
                     Operational Alerts
@@ -198,10 +198,10 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
                   {notifications.map((notif) => (
                     <div
                       key={notif.id}
-                      className="px-4 py-3 flex gap-3 text-xs"
+                      className="px-4 py-3 flex gap-3 text-xs transition-colors"
                       style={{
-                        borderBottom: '1px solid #F0F2F5',
-                        background: notif.unread ? '#FFFDE7' : '#ffffff'
+                        borderBottom: '1px solid var(--gov-border)',
+                        background: notif.unread ? 'var(--gov-surface-hover)' : 'transparent'
                       }}
                     >
                       <div className="mt-0.5 shrink-0">
@@ -223,14 +223,29 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
             )}
           </div>
 
+          {/* Theme Toggle (Light / Dark) */}
+          <button
+            id="theme-toggle-btn"
+            onClick={toggleTheme}
+            className="theme-toggle-btn"
+            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+            aria-label={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+          >
+            {theme === 'dark' ? (
+              <Sun className="w-4 h-4 text-amber-400 hover:rotate-45 transition-transform" />
+            ) : (
+              <Moon className="w-4 h-4 text-slate-700 hover:-rotate-12 transition-transform" />
+            )}
+          </button>
+
           {/* Help */}
           <button
             id="help-btn"
             onClick={onOpenHelp}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors"
             style={{
-              background: '#F5F6F8',
-              border: '1px solid #CBD5E0',
+              background: 'var(--gov-surface-alt)',
+              border: '1px solid var(--gov-border)',
               color: 'var(--gov-text-secondary)',
               cursor: 'pointer'
             }}

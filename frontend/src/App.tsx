@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ActiveTab, GisLayers, MorphologicalProperties, OperationNotification, SceneMetadata } from './types';
 import { DEFAULT_DETECTION, DEMO_SCENES, INITIAL_GIS_LAYERS, INITIAL_NOTIFICATIONS, SUSPECT_VESSELS } from './data';
 import { TopAppBar } from './components/TopAppBar';
@@ -21,6 +21,27 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [notifications, setNotifications] = useState<OperationNotification[]>(INITIAL_NOTIFICATIONS);
 
+  // Theme state: default to localStorage or system preference
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('aquatrace_theme');
+    if (saved === 'dark' || saved === 'light') return saved;
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('aquatrace_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
+
   // Modals state
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState<boolean>(false);
@@ -38,7 +59,11 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden font-sans antialiased select-none" style={{ background: 'var(--gov-bg)', color: 'var(--gov-text-primary)' }}>
+    <div
+      data-theme={theme}
+      className="flex h-screen w-screen overflow-hidden font-sans antialiased select-none"
+      style={{ background: 'var(--gov-bg)', color: 'var(--gov-text-primary)' }}
+    >
       
       {/* Side Rail Navigation (Fixed Left, 72px width) */}
       <SideNavBar 
@@ -59,6 +84,8 @@ export default function App() {
           notifications={notifications}
           setNotifications={setNotifications}
           onOpenHelp={() => setIsHelpModalOpen(true)}
+          theme={theme}
+          toggleTheme={toggleTheme}
         />
 
         {/* Dynamic View Canvas Area (Below Top App Bar) */}

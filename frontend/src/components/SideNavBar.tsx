@@ -34,9 +34,9 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
   return (
     <nav
       id="side-nav-bar"
-      className="fixed left-0 top-20 h-screen w-[72px] z-20 flex flex-col items-center py-3 select-none"
+      className="fixed left-0 top-20 h-screen w-[72px] z-20 flex flex-col items-center py-3 select-none transition-colors"
       style={{
-        background: '#ffffff',
+        background: 'var(--gov-surface)',
         borderRight: '1px solid var(--gov-border)',
       }}
     >
@@ -70,10 +70,10 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
               <div
                 className="absolute left-[76px] px-2.5 py-1 text-xs font-medium opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50 shadow-md"
                 style={{
-                  background: '#ffffff',
+                  background: 'var(--gov-surface)',
                   border: '1px solid var(--gov-border)',
                   borderLeft: '3px solid var(--gov-navy)',
-                  color: 'var(--gov-navy)',
+                  color: 'var(--gov-text-primary)',
                   borderRadius: '2px'
                 }}
               >

@@ -158,7 +158,7 @@ export const ExportView: React.FC<ExportViewProps> = ({
           <div
             className="p-6 flex flex-col justify-between"
             style={{
-              background: '#ffffff',
+              background: 'var(--gov-surface)',
               border: '1px solid var(--gov-border)',
               borderTop: '3px solid var(--gov-navy)',
               borderRadius: '2px'
@@ -194,7 +194,7 @@ export const ExportView: React.FC<ExportViewProps> = ({
                 onClick={onOpenReportPreview}
                 className="w-full py-2.5 flex items-center justify-center gap-2 text-xs font-semibold transition-colors cursor-pointer"
                 style={{
-                  background: '#ffffff', color: 'var(--gov-navy)',
+                  background: 'var(--gov-surface)', color: 'var(--gov-navy)',
                   border: '1.5px solid var(--gov-navy)', borderRadius: '2px'
                 }}
               >
@@ -208,7 +208,7 @@ export const ExportView: React.FC<ExportViewProps> = ({
           <div
             className="p-6 flex flex-col justify-between"
             style={{
-              background: '#ffffff',
+              background: 'var(--gov-surface)',
               border: '1px solid var(--gov-border)',
               borderTop: '3px solid var(--gov-green)',
               borderRadius: '2px'
@@ -247,7 +247,7 @@ export const ExportView: React.FC<ExportViewProps> = ({
                 onClick={handleDownloadCSV}
                 className="flex-1 py-2.5 flex items-center justify-center gap-1.5 text-xs font-semibold transition-colors cursor-pointer"
                 style={{
-                  background: '#ffffff', color: 'var(--gov-green)',
+                  background: 'var(--gov-surface)', color: 'var(--gov-green)',
                   border: '1.5px solid var(--gov-green)', borderRadius: '2px'
                 }}
               >
@@ -260,7 +260,7 @@ export const ExportView: React.FC<ExportViewProps> = ({
           <div
             className="p-6 flex flex-col justify-between"
             style={{
-              background: '#ffffff',
+              background: 'var(--gov-surface)',
               border: '1px solid var(--gov-border)',
               borderTop: '3px solid var(--gov-saffron)',
               borderRadius: '2px'
@@ -285,7 +285,7 @@ export const ExportView: React.FC<ExportViewProps> = ({
             <div className="mt-6 flex flex-col gap-2">
               <div
                 className="flex items-center justify-between px-3 py-2"
-                style={{ background: '#F5F6F8', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
+                style={{ background: 'var(--gov-surface-alt)', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
               >
                 <span className="font-mono text-xs font-bold tracking-wider" style={{ color: 'var(--gov-navy)' }}>
                   {incidentRefId}
@@ -311,12 +311,12 @@ export const ExportView: React.FC<ExportViewProps> = ({
 
         {/* Audit Table */}
         <div
-          style={{ background: '#ffffff', border: '1px solid var(--gov-border)', borderRadius: '2px', overflow: 'hidden' }}
+          style={{ background: 'var(--gov-surface)', border: '1px solid var(--gov-border)', borderRadius: '2px', overflow: 'hidden' }}
         >
           {/* Table header */}
           <div
             className="px-5 py-3 flex justify-between items-center"
-            style={{ background: '#EEF0F7', borderBottom: '2px solid var(--gov-navy)' }}
+            style={{ background: 'var(--gov-surface-alt)', borderBottom: '2px solid var(--gov-navy)' }}
           >
             <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--gov-navy)' }}>
               <FileSpreadsheet className="w-4 h-4" style={{ color: 'var(--gov-saffron)' }} />
@@ -340,7 +340,7 @@ export const ExportView: React.FC<ExportViewProps> = ({
               <div
                 key={idx}
                 className="grid grid-cols-1 sm:grid-cols-3 px-5 py-3 text-xs"
-                style={{ background: row.highlight ? 'var(--gov-surface-alt)' : '#ffffff' }}
+                style={{ background: row.highlight ? 'var(--gov-surface-alt)' : 'transparent' }}
               >
                 <span className="font-semibold" style={{ color: 'var(--gov-text-secondary)' }}>{row.label}</span>
                 <span className="sm:col-span-2 font-mono" style={{ color: row.color || 'var(--gov-text-primary)' }}>

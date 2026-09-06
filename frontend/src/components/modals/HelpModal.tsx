@@ -22,11 +22,11 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 select-none" style={{ background: 'rgba(0,0,0,0.5)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 select-none" style={{ background: 'rgba(0,0,0,0.6)' }}>
       <div
         className="w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl"
         style={{
-          background: '#ffffff',
+          background: 'var(--gov-surface)',
           border: '1px solid var(--gov-border)',
           borderTop: '4px solid var(--gov-navy)',
           borderRadius: '2px'
@@ -35,7 +35,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
         {/* Header */}
         <div
           className="px-6 py-4 flex items-center justify-between"
-          style={{ background: '#EEF0F7', borderBottom: '1px solid var(--gov-border)' }}
+          style={{ background: 'var(--gov-surface-alt)', borderBottom: '1px solid var(--gov-border)' }}
         >
           <div className="flex items-center gap-3">
             <img src={APP_LOGO} alt="AquaTrace" className="w-6 h-6 object-contain" />
@@ -101,7 +101,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                   key={item.stage}
                   className="p-3"
                   style={{
-                    background: '#F5F6F8',
+                    background: 'var(--gov-surface-alt)',
                     border: '1px solid var(--gov-border)',
                     borderLeft: '3px solid var(--gov-navy)',
                     borderRadius: '2px'
@@ -132,21 +132,21 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
             <ul className="space-y-2 text-xs" style={{ color: 'var(--gov-text-secondary)' }}>
               <li
                 className="flex items-start gap-2 p-2 rounded"
-                style={{ background: '#F5F6F8', border: '1px solid var(--gov-border)' }}
+                style={{ background: 'var(--gov-surface-alt)', border: '1px solid var(--gov-border)' }}
               >
                 <span className="font-bold mt-0.5" style={{ color: 'var(--gov-navy)' }}>Map Canvas:</span>
                 <span>Drag to pan; use + / − controls or scroll wheel to zoom.</span>
               </li>
               <li
                 className="flex items-start gap-2 p-2 rounded"
-                style={{ background: '#F5F6F8', border: '1px solid var(--gov-border)' }}
+                style={{ background: 'var(--gov-surface-alt)', border: '1px solid var(--gov-border)' }}
               >
                 <span className="font-bold mt-0.5" style={{ color: 'var(--gov-navy)' }}>Layer Toggles:</span>
                 <span>Switch between SAR Backscatter, Predicted Mask opacity, ocean currents, and AIS tracks using the GIS Layer Stack panel.</span>
               </li>
               <li
                 className="flex items-start gap-2 p-2 rounded"
-                style={{ background: '#F5F6F8', border: '1px solid var(--gov-border)' }}
+                style={{ background: 'var(--gov-surface-alt)', border: '1px solid var(--gov-border)' }}
               >
                 <span className="font-bold mt-0.5" style={{ color: 'var(--gov-navy)' }}>Scrubber:</span>
                 <span>Drag timeline handle from −72h to +24h to simulate historical backward drift and forward dispersion predictions.</span>
@@ -159,7 +159,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
         {/* Footer */}
         <div
           className="px-6 py-3 flex justify-between items-center"
-          style={{ background: '#EEF0F7', borderTop: '1px solid var(--gov-border)' }}
+          style={{ background: 'var(--gov-surface-alt)', borderTop: '1px solid var(--gov-border)' }}
         >
           <span className="text-[10px]" style={{ color: 'var(--gov-text-muted)' }}>
             Government of India — Maritime Surveillance Operations

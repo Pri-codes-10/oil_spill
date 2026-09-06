@@ -142,9 +142,9 @@ export const DriftView: React.FC<DriftViewProps> = ({
         style={{ left: '45%', top: '55%', transform: 'translate(-50%, -130px)' }}
       >
         <div
-          className="px-4 py-2 flex flex-col items-center"
+          className="px-4 py-2 flex flex-col items-center shadow-lg"
           style={{
-            background: 'rgba(255,255,255,0.92)',
+            background: 'var(--gov-surface)',
             border: '1px solid var(--gov-navy)',
             borderTop: '3px solid var(--gov-navy)',
             borderRadius: '2px'
@@ -158,9 +158,9 @@ export const DriftView: React.FC<DriftViewProps> = ({
 
       {/* AIS Vessel Track Labels */}
       <div
-        className="absolute left-[65%] top-[34%] z-10 flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-all hover:scale-105"
+        className="absolute left-[65%] top-[34%] z-10 flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-all hover:scale-105 shadow-md"
         style={{
-          background: 'rgba(255,255,255,0.92)',
+          background: 'var(--gov-surface)',
           border: '1px solid var(--gov-navy)',
           borderLeft: '3px solid var(--gov-navy)',
           borderRadius: '2px'
@@ -169,21 +169,21 @@ export const DriftView: React.FC<DriftViewProps> = ({
         title="Click to view suspect profile"
       >
         <Ship className="w-3.5 h-3.5" style={{ color: 'var(--gov-navy)' }} />
-        <span className="font-mono text-[11px] font-medium" style={{ color: 'var(--gov-navy)' }}>MT OCEAN GLORY (MMSI: 244...)</span>
+        <span className="font-mono text-[11px] font-medium" style={{ color: 'var(--gov-text-primary)' }}>MT OCEAN GLORY (MMSI: 244...)</span>
       </div>
 
       <div
-        className="absolute left-[30%] top-[72%] z-10 flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-all hover:scale-105"
+        className="absolute left-[30%] top-[72%] z-10 flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-all hover:scale-105 shadow-md"
         style={{
-          background: 'rgba(255,255,255,0.92)',
+          background: 'var(--gov-surface)',
           border: '1px solid var(--gov-saffron)',
           borderLeft: '3px solid var(--gov-saffron)',
           borderRadius: '2px'
         }}
         onClick={onProceedToSuspects}
       >
-        <Ship className="w-3.5 h-3.5" style={{ color: 'var(--gov-saffron-dim)' }} />
-        <span className="font-mono text-[11px] font-medium" style={{ color: 'var(--gov-saffron-dim)' }}>MV SEA BREEZE (MMSI: 352...)</span>
+        <Ship className="w-3.5 h-3.5" style={{ color: 'var(--gov-saffron)' }} />
+        <span className="font-mono text-[11px] font-medium" style={{ color: 'var(--gov-text-primary)' }}>MV SEA BREEZE (MMSI: 352...)</span>
       </div>
 
       {/* Environmental Inputs Panel — white government card */}
@@ -191,7 +191,7 @@ export const DriftView: React.FC<DriftViewProps> = ({
         id="environmental-inputs-panel"
         className="absolute top-4 right-4 w-80 z-30 flex flex-col overflow-hidden shadow-lg"
         style={{
-          background: '#ffffff',
+          background: 'var(--gov-surface)',
           border: '1px solid var(--gov-border)',
           borderTop: '3px solid var(--gov-navy)',
           borderRadius: '2px'
@@ -199,7 +199,7 @@ export const DriftView: React.FC<DriftViewProps> = ({
       >
         <div
           className="px-4 py-2.5 flex items-center justify-between"
-          style={{ background: '#EEF0F7', borderBottom: '1px solid var(--gov-border)' }}
+          style={{ background: 'var(--gov-surface-alt)', borderBottom: '1px solid var(--gov-border)' }}
         >
           <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--gov-navy)' }}>
             <Sliders className="w-3.5 h-3.5" style={{ color: 'var(--gov-saffron)' }} />
@@ -216,7 +216,6 @@ export const DriftView: React.FC<DriftViewProps> = ({
               value={envInputs.currentModel}
               onChange={e => setEnvInputs({ ...envInputs, currentModel: e.target.value as any })}
               className="gov-select text-xs"
-              style={{ color: 'var(--gov-navy)' }}
             >
               <option value="HYCOM">HYCOM (0.08° Global)</option>
               <option value="NEMO">NEMO (CMEMS)</option>
@@ -231,7 +230,6 @@ export const DriftView: React.FC<DriftViewProps> = ({
               value={envInputs.windModel}
               onChange={e => setEnvInputs({ ...envInputs, windModel: e.target.value as any })}
               className="gov-select text-xs"
-              style={{ color: 'var(--gov-navy)' }}
             >
               <option value="GFS">GFS (0.25°)</option>
               <option value="ECMWF">ECMWF HRES</option>
@@ -258,7 +256,7 @@ export const DriftView: React.FC<DriftViewProps> = ({
             disabled={isReRunning}
             className="mt-2 w-full h-9 flex items-center justify-center gap-2 text-xs font-semibold transition-all cursor-pointer disabled:opacity-50"
             style={{
-              background: '#ffffff',
+              background: 'var(--gov-surface)',
               border: '1.5px solid var(--gov-navy)',
               color: 'var(--gov-navy)',
               borderRadius: '2px'
@@ -290,7 +288,7 @@ export const DriftView: React.FC<DriftViewProps> = ({
         id="drift-playback-bar"
         className="absolute bottom-4 left-4 right-4 z-30 flex flex-col shadow-lg p-3"
         style={{
-          background: 'rgba(255,255,255,0.95)',
+          background: 'var(--gov-surface)',
           border: '1px solid var(--gov-border)',
           borderTop: '2px solid var(--gov-navy)',
           borderRadius: '2px'
@@ -298,7 +296,7 @@ export const DriftView: React.FC<DriftViewProps> = ({
       >
         {/* Scrubber */}
         <div className="h-10 w-full relative px-6 mt-1">
-          <div className="absolute top-1/2 -translate-y-1/2 left-6 right-6 h-1.5 rounded-full overflow-hidden" style={{ background: '#CBD5E0' }}>
+          <div className="absolute top-1/2 -translate-y-1/2 left-6 right-6 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--gov-border)' }}>
             <div className="absolute left-0 top-0 h-full" style={{ width: '75%', background: 'var(--gov-navy)', opacity: 0.5 }} />
             <div className="absolute left-[75%] top-0 h-full w-1/4" style={{ background: 'var(--gov-saffron)', opacity: 0.5 }} />
           </div>
@@ -328,7 +326,7 @@ export const DriftView: React.FC<DriftViewProps> = ({
             >
               {getDisplayTime(scrubberTime)}
             </div>
-            <div className="w-4 h-4 rounded-full" style={{ background: 'var(--gov-navy)', border: '2px solid #ffffff', boxShadow: '0 1px 3px rgba(0,0,128,0.4)' }} />
+            <div className="w-4 h-4 rounded-full" style={{ background: 'var(--gov-navy)', border: '2px solid var(--gov-surface)', boxShadow: '0 1px 3px rgba(0,0,128,0.4)' }} />
           </div>
 
           <input
@@ -350,7 +348,7 @@ export const DriftView: React.FC<DriftViewProps> = ({
                 onClick={() => setIsPlaying(!isPlaying)}
                 className="w-9 h-9 flex items-center justify-center transition-colors cursor-pointer"
                 style={{
-                  background: isPlaying ? 'var(--gov-green)' : '#ffffff',
+                  background: isPlaying ? 'var(--gov-green)' : 'var(--gov-surface-alt)',
                   color: isPlaying ? '#ffffff' : 'var(--gov-text-secondary)',
                   borderRight: '1px solid var(--gov-border)'
                 }}
@@ -361,7 +359,7 @@ export const DriftView: React.FC<DriftViewProps> = ({
               <button
                 onClick={() => setScrubberTime(0)}
                 className="w-9 h-9 flex items-center justify-center transition-colors cursor-pointer"
-                style={{ background: '#ffffff', color: 'var(--gov-text-secondary)' }}
+                style={{ background: 'var(--gov-surface-alt)', color: 'var(--gov-text-secondary)' }}
                 title="Rewind to -72h"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -377,7 +375,7 @@ export const DriftView: React.FC<DriftViewProps> = ({
                   onClick={() => setPlaybackSpeed(spd)}
                   className="px-2 py-0.5 text-xs font-mono font-semibold transition-colors cursor-pointer"
                   style={{
-                    background: playbackSpeed === spd ? 'var(--gov-navy)' : '#ffffff',
+                    background: playbackSpeed === spd ? 'var(--gov-navy)' : 'var(--gov-surface-alt)',
                     color: playbackSpeed === spd ? '#ffffff' : 'var(--gov-text-secondary)',
                     border: '1px solid var(--gov-border)',
                     borderRadius: '2px'

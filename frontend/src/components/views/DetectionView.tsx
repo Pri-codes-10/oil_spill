@@ -96,7 +96,7 @@ export const DetectionView: React.FC<DetectionViewProps> = ({
   const StatCard = ({ label, value, unit }: { label: string; value: string | number; unit?: string }) => (
     <div
       className="p-3 flex flex-col justify-center"
-      style={{ background: '#F5F6F8', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
+      style={{ background: 'var(--gov-surface-alt)', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
     >
       <span className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--gov-text-muted)' }}>{label}</span>
       <span className="font-mono text-sm font-bold" style={{ color: 'var(--gov-text-primary)' }}>
@@ -197,10 +197,10 @@ export const DetectionView: React.FC<DetectionViewProps> = ({
           </svg>
         </div>
 
-        {/* Zoom controls — white panel on map */}
+        {/* Zoom controls — floating panel on map */}
         <div
           className="absolute top-4 right-4 z-30 flex flex-col gap-1 shadow-md"
-          style={{ background: 'rgba(255,255,255,0.92)', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
+          style={{ background: 'var(--gov-surface)', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
         >
           <button onClick={() => handleZoom(0.2)} className="w-8 h-8 flex items-center justify-center cursor-pointer" style={{ color: 'var(--gov-navy)' }} title="Zoom In"><ZoomIn className="w-4 h-4" /></button>
           <div style={{ height: '1px', background: 'var(--gov-border)' }} />
@@ -220,7 +220,7 @@ export const DetectionView: React.FC<DetectionViewProps> = ({
               onClick={() => setPolarization(p)}
               className="px-3 py-1.5 text-xs font-mono font-bold transition-colors cursor-pointer"
               style={{
-                background: polarization === p ? 'var(--gov-navy)' : '#ffffff',
+                background: polarization === p ? 'var(--gov-navy)' : 'var(--gov-surface)',
                 color: polarization === p ? '#ffffff' : 'var(--gov-text-secondary)',
                 borderRight: p !== 'RATIO' ? '1px solid var(--gov-border)' : 'none'
               }}
@@ -234,7 +234,7 @@ export const DetectionView: React.FC<DetectionViewProps> = ({
         <div className="absolute bottom-4 left-4 z-20 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 max-w-xl">
           <div
             className="flex items-center gap-3 px-3.5 py-2.5 shadow-md"
-            style={{ background: 'rgba(255,255,255,0.93)', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
+            style={{ background: 'var(--gov-surface)', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
           >
             <div
               className="w-7 h-7 rounded flex items-center justify-center shrink-0"
@@ -262,7 +262,7 @@ export const DetectionView: React.FC<DetectionViewProps> = ({
 
           <div
             className="flex items-center gap-2.5 px-3.5 py-2.5 shadow-md"
-            style={{ background: 'rgba(255,255,255,0.93)', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
+            style={{ background: 'var(--gov-surface)', border: '1px solid var(--gov-border)', borderRadius: '2px' }}
           >
             <Crosshair className="w-4 h-4" style={{ color: 'var(--gov-text-muted)' }} />
             <div>
@@ -278,12 +278,12 @@ export const DetectionView: React.FC<DetectionViewProps> = ({
         <aside
           id="detection-forensic-drawer"
           className="w-full sm:w-[460px] z-30 flex flex-col shadow-2xl h-full"
-          style={{ background: '#ffffff', borderLeft: '1px solid var(--gov-border)' }}
+          style={{ background: 'var(--gov-surface)', borderLeft: '1px solid var(--gov-border)' }}
         >
           {/* Drawer header */}
           <div
             className="p-4 shrink-0"
-            style={{ background: '#EEF0F7', borderBottom: '3px solid var(--gov-navy)' }}
+            style={{ background: 'var(--gov-surface-alt)', borderBottom: '3px solid var(--gov-navy)' }}
           >
             <div className="flex justify-between items-start mb-2">
               <div className="flex items-center gap-2">
@@ -377,7 +377,7 @@ export const DetectionView: React.FC<DetectionViewProps> = ({
                 </div>
                 <div>
                   <span className="text-[10px] font-semibold uppercase tracking-wider block" style={{ color: 'var(--gov-text-muted)' }}>Estimated Age</span>
-                  <span className="font-mono text-xs font-semibold" style={{ color: '#92400E' }}>{detection.estimatedAge}</span>
+                  <span className="font-mono text-xs font-semibold" style={{ color: 'var(--gov-text-saffron)' }}>{detection.estimatedAge}</span>
                 </div>
               </div>
               <span className="tag tag-amber text-[10px]">Hindcast Verified</span>
@@ -388,7 +388,7 @@ export const DetectionView: React.FC<DetectionViewProps> = ({
           {/* Drawer footer */}
           <div
             className="p-4 shrink-0"
-            style={{ borderTop: '1px solid var(--gov-border)', background: '#F5F6F8' }}
+            style={{ borderTop: '1px solid var(--gov-border)', background: 'var(--gov-surface-alt)' }}
           >
             <button
               id="view-drift-analysis-btn"
