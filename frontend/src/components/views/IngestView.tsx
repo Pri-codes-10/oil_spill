@@ -12,64 +12,120 @@ import {
   ChevronRight,
   Upload
 } from 'lucide-react';
-import { hover } from 'motion';
 import { APP_BACKGROUND, APP_BACKGROUND_DARK } from '../../data';
 interface IngestViewProps {
   currentScene: SceneMetadata;
   setCurrentScene: (scene: SceneMetadata) => void;
   onContinueToMap: () => void;
 }
+import {
+  detectScene,
+  DetectionResponse,
+} from "../../api/api";
 
 export const IngestView: React.FC<IngestViewProps> = ({
   currentScene,
   setCurrentScene,
   onContinueToMap
 }) => {
-  const [pipelineStep, setPipelineStep] = useState<number>(2);
+  const [pipelineStep, setPipelineStep] = useState<number>(1);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [customFileName, setCustomFileName] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<boolean>(false);
+  const [contract1, setContract1] =
+  useState<DetectionResponse | null>(null);
 
   const handleSelectDemo = (sceneId: string) => {
-    const scene = DEMO_SCENES.find(s => s.id === sceneId);
-    if (scene) {
-      setCurrentScene(scene);
-      setCustomFileName(null);
-      triggerPipelineSim();
-    }
-  };
+  const scene = DEMO_SCENES.find((s) => s.id === sceneId);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setCustomFileName(file.name);
-      triggerPipelineSim();
-    }
-  };
+  if (!scene) {
+    return;
+  }
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setDragOver(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setCustomFileName(e.dataTransfer.files[0].name);
-      triggerPipelineSim();
-    }
-  };
+  // Immediate UI response
+  setCurrentScene(scene);
+  setCustomFileName(null);
 
-  const triggerPipelineSim = () => {
-    setIsProcessing(true);
-    setPipelineStep(1);
-    setTimeout(() => {
-      setPipelineStep(2);
-      setTimeout(() => {
-        setPipelineStep(3);
-        setTimeout(() => {
-          setPipelineStep(4);
-          setIsProcessing(false);
-        }, 700);
-      }, 700);
-    }, 700);
-  };
+  // Backend processing happens asynchronously
+  void runDetection(scene);
+};
+
+  const handleFileUpload = async (
+  e: React.ChangeEvent<HTMLInputElement>
+) => {
+  const file = e.target.files?.[0];
+
+  if (!file) {
+    return;
+  }
+
+  setCustomFileName(file.name);
+
+  await runDetection('synthetic');
+};
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+  e.preventDefault();
+  setDragOver(false);
+
+  const file = e.dataTransfer.files?.[0];
+
+  if (!file) {
+    return;
+  }
+
+  setCustomFileName(file.name);
+
+  await runDetection('synthetic');
+};
+
+
+  const runDetection = async (scene: SceneMetadata) => {
+  setIsProcessing(true);
+  setPipelineStep(1);
+
+  try {
+    console.log("Sending detection request to backend...");
+
+    const result = await detectScene("synthetic");
+
+    console.log("INGEST BACKEND RESULT:", result);
+
+    setContract1(result);
+
+    const existingDetection = scene.detections?.[0];
+
+    if (existingDetection) {
+      const updatedDetection = {
+        ...existingDetection,
+        areaKm2: result.area_km2,
+        majorAxisKm: result.major_axis_km,
+        minorAxisKm: result.minor_axis_km,
+        bearingDeg: result.orientation_deg,
+        centroid: `${result.centroid[1].toFixed(4)}°N, ${result.centroid[0].toFixed(4)}°E`,
+        confidence: result.confidence * 100,
+      };
+
+      setCurrentScene({
+        ...scene,
+        detections: [updatedDetection],
+      });
+    }
+
+    setPipelineStep(2);
+
+  } catch (error) {
+    console.error("INGEST ERROR:", error);
+
+    alert(
+      error instanceof Error
+        ? error.message
+        : "Unable to connect to the backend."
+    );
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   const pipelineSteps = [
     { num: 1, label: 'Detect', sub: 'Segmented' },

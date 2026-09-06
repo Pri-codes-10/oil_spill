@@ -12,7 +12,7 @@ import { ExportView } from './components/views/ExportView';
 import { ReportPreviewModal } from './components/modals/ReportPreviewModal';
 import { HelpModal } from './components/modals/HelpModal';
 import { OperatorModal } from './components/modals/OperatorModal';
-
+import { getMockDetection } from "./api/api";
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('map');
   const [currentScene, setCurrentScene] = useState<SceneMetadata>(DEMO_SCENES[0]);
@@ -27,6 +27,7 @@ export default function App() {
     if (saved === 'dark' || saved === 'light') return saved;
     return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
+  
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
