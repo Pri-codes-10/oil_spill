@@ -5,6 +5,7 @@ import { TopAppBar } from './components/TopAppBar';
 import { SideNavBar } from './components/SideNavBar';
 import { IngestView } from './components/views/IngestView';
 import { MapView } from './components/views/MapView';
+import { CoordinateAnalysisView } from './components/views/CoordinateAnalysisView';
 import { DetectionView } from './components/views/DetectionView';
 import { DriftView } from './components/views/DriftView';
 import { SuspectsView } from './components/views/SuspectsView';
@@ -22,6 +23,8 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [notifications, setNotifications] = useState<OperationNotification[]>(INITIAL_NOTIFICATIONS);
   const [contract1, setContract1] = useState<DetectionResponse | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [sarPreviewUrl, setSarPreviewUrl] = useState<string | null>(null);
   const [corridor, setCorridor] = useState<CorridorResponse | null>(null);
   const [topSuspect, setTopSuspect] = useState<Suspect | null>(null);
   const [pipelineStep, setPipelineStep] = useState<number>(1);
@@ -59,6 +62,8 @@ export default function App() {
     setContract1(null);
     setCorridor(null);
     setTopSuspect(null);
+    setUploadedFile(null);
+    setSarPreviewUrl(null);
     setPipelineStep(1);
   };
 
@@ -113,7 +118,20 @@ export default function App() {
             <IngestView
               currentScene={currentScene}
               setCurrentScene={handleSceneChange}
-              onContinueToMap={() => setActiveTab('map')}
+              onFileUpload={(file, previewUrl) => {
+                console.log("[APP] Storing uploaded file:", file.name, file.size);
+                console.log("[APP] Storing SAR preview URL:", previewUrl ? `${previewUrl.slice(0, 40)}...` : null);
+                setUploadedFile(file);
+                setSarPreviewUrl(previewUrl);
+              }}
+              onContinueToAnalysis={() => {
+                console.log("[NAVIGATION] Navigating to Analysis");
+                setActiveTab('analysis');
+              }}
+              onContinueToMap={() => {
+                console.log("[NAVIGATION] Navigating to Analysis");
+                setActiveTab('analysis');
+              }}
               onContract1={handleContract1}
               onCorridorReady={setCorridor}
               onTopSuspectReady={setTopSuspect}
@@ -131,6 +149,27 @@ export default function App() {
               contract1={contract1}
               corridor={corridor}
               topSuspect={topSuspect}
+              onNavigateToAnalysis={() => setActiveTab('analysis')}
+              onSelectDetection={(selectedDet) => {
+                if (selectedDet) setDetection(selectedDet);
+                setActiveTab('detection');
+              }}
+            />
+          )}
+
+          {activeTab === 'analysis' && (
+            <CoordinateAnalysisView
+              currentScene={currentScene}
+              contract1={contract1}
+              corridor={corridor}
+              topSuspect={topSuspect}
+              uploadedFile={uploadedFile}
+              sarPreviewUrl={sarPreviewUrl}
+              gisLayers={gisLayers}
+              setGisLayers={setGisLayers}
+              theme={theme}
+              onNavigateToAis={() => setActiveTab('map')}
+              onNavigateToIngest={() => setActiveTab('ingest')}
               onSelectDetection={(selectedDet) => {
                 if (selectedDet) setDetection(selectedDet);
                 setActiveTab('detection');
@@ -143,6 +182,8 @@ export default function App() {
               currentScene={currentScene}
               detection={detection}
               contract1={contract1}
+              uploadedFile={uploadedFile}
+              sarPreviewUrl={sarPreviewUrl}
               onSelectDetection={handleSelectDetection}
               onViewDriftAnalysis={() => setActiveTab('drift')}
               onCloseDrawer={() => setActiveTab('map')}
@@ -154,9 +195,11 @@ export default function App() {
             <DriftView
               currentScene={currentScene}
               contract1={contract1}
+              corridor={corridor}
               onCorridorReady={setCorridor}
               onProceedToSuspects={() => setActiveTab('suspects')}
               onGoToIngest={() => setActiveTab('ingest')}
+              theme={theme}
             />
           )}
 
@@ -169,6 +212,7 @@ export default function App() {
               onTopSuspectReady={setTopSuspect}
               onProceedToExport={() => setActiveTab('export')}
               onGoToIngest={() => setActiveTab('drift')}
+              theme={theme}
             />
           )}
 

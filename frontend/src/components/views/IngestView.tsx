@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SceneMetadata, CorridorResponse, Suspect } from '../../types';
 import { DEMO_SCENES } from '../../data';
 import {
@@ -17,10 +17,12 @@ import { APP_BACKGROUND, APP_BACKGROUND_DARK } from '../../data';
 interface IngestViewProps {
   currentScene: SceneMetadata;
   setCurrentScene: (scene: SceneMetadata) => void;
-  onContinueToMap: () => void;
+  onContinueToMap?: () => void;
+  onContinueToAnalysis?: () => void;
   onContract1: (contract1: DetectionResponse | null) => void;
   onCorridorReady?: (corridor: CorridorResponse | null) => void;
   onTopSuspectReady?: (suspect: Suspect | null) => void;
+  onFileUpload?: (file: File, previewUrl: string | null) => void;
   pipelineStep: number;
   setPipelineStep: (step: number) => void;
 }
@@ -31,22 +33,38 @@ import {
   getCorridor,
   rankSuspects,
 } from "../../api/api";
+import { generateSarPreview } from "../../utils/sarPreview";
 
 export const IngestView: React.FC<IngestViewProps> = ({
   currentScene,
   setCurrentScene,
   onContinueToMap,
+  onContinueToAnalysis,
   onContract1,
   onCorridorReady,
   onTopSuspectReady,
+  onFileUpload,
   pipelineStep,
   setPipelineStep,
 }) => {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [_sarPreviewUrl, setSarPreviewUrl] = useState<string | null>(null);
   const [customFileName, setCustomFileName] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<boolean>(false);
   const [contract1, setContract1] = useState<DetectionResponse | null>(null);
   const [overlayImage, setOverlayImage] = useState<string | null>(null);
+
+  const canDetect = (!!uploadedFile || !!currentScene) && !isProcessing;
+
+  useEffect(() => {
+    console.log("[PIPELINE] Detect button state:", {
+      hasFile: !!uploadedFile,
+      fileName: uploadedFile?.name,
+      isProcessing,
+      canDetect
+    });
+  }, [uploadedFile, isProcessing, canDetect]);
 
   const handleSelectDemo = (sceneId: string) => {
     const scene = DEMO_SCENES.find((s) => s.id === sceneId);
@@ -60,10 +78,17 @@ export const IngestView: React.FC<IngestViewProps> = ({
 
     // Immediate UI response & clear old backend detection in App.tsx
     setCurrentScene(scene);
+    setUploadedFile(null);
     setCustomFileName(null);
+    setContract1(null);
+    onContract1(null);
+    setOverlayImage(null);
+    if (onCorridorReady) onCorridorReady(null);
+    if (onTopSuspectReady) onTopSuspectReady(null);
+    setPipelineStep(1);
 
     // Backend processing happens asynchronously
-    void runDetection(scene);
+    void executePipeline();
   };
 
   const handleFileUpload = (
@@ -75,9 +100,40 @@ export const IngestView: React.FC<IngestViewProps> = ({
       return;
     }
 
-    setCustomFileName(file.name);
+    const extension = file.name.split('.').pop()?.toLowerCase() || '';
+    console.log("[PIPELINE] File selected:", file);
+    console.log("[PIPELINE] File name:", file.name);
+    console.log("[PIPELINE] File type:", file.type);
+    console.log("[PIPELINE] File size:", file.size);
+    console.log("[PIPELINE] File extension:", extension);
 
-    void runDetection(currentScene, file);
+    // Reset previous pipeline state
+    setContract1(null);
+    onContract1(null);
+    setOverlayImage(null);
+    if (onCorridorReady) onCorridorReady(null);
+    if (onTopSuspectReady) onTopSuspectReady(null);
+    setPipelineStep(1);
+    setUploadedFile(file);
+    setCustomFileName(file.name);
+    console.log("[PIPELINE] Previous pipeline state cleared");
+    console.log("[PIPELINE] New file ready for detection");
+
+    // Immediately pass original File to App-level state so it is never lost
+    onFileUpload?.(file, null);
+
+    // Asynchronously decode preview in the background (NON-BLOCKING)
+    console.log("[TIFF] Starting preview decoding");
+    generateSarPreview(file)
+      .then((previewUrl) => {
+        console.log("[TIFF] Preview decoded successfully");
+        setSarPreviewUrl(previewUrl);
+        onFileUpload?.(file, previewUrl);
+      })
+      .catch((previewError) => {
+        console.error("[TIFF] Preview failed:", previewError);
+        console.log("[TIFF] Preview failed, but preserving original file for backend processing");
+      });
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -90,72 +146,130 @@ export const IngestView: React.FC<IngestViewProps> = ({
       return;
     }
 
-    setCustomFileName(file.name);
+    const extension = file.name.split('.').pop()?.toLowerCase() || '';
+    console.log("[PIPELINE] File selected:", file);
+    console.log("[PIPELINE] File name:", file.name);
+    console.log("[PIPELINE] File type:", file.type);
+    console.log("[PIPELINE] File size:", file.size);
+    console.log("[PIPELINE] File extension:", extension);
 
-    void runDetection(currentScene, file);
+    // Reset previous pipeline state
+    setContract1(null);
+    onContract1(null);
+    setOverlayImage(null);
+    if (onCorridorReady) onCorridorReady(null);
+    if (onTopSuspectReady) onTopSuspectReady(null);
+    setPipelineStep(1);
+    setUploadedFile(file);
+    setCustomFileName(file.name);
+    console.log("[PIPELINE] Previous pipeline state cleared");
+    console.log("[PIPELINE] New file ready for detection");
+
+    // Immediately pass original File to App-level state so it is never lost
+    onFileUpload?.(file, null);
+
+    // Asynchronously decode preview in the background (NON-BLOCKING)
+    console.log("[TIFF] Starting preview decoding");
+    generateSarPreview(file)
+      .then((previewUrl) => {
+        console.log("[TIFF] Preview decoded successfully");
+        setSarPreviewUrl(previewUrl);
+        onFileUpload?.(file, previewUrl);
+      })
+      .catch((previewError) => {
+        console.error("[TIFF] Preview failed:", previewError);
+        console.log("[TIFF] Preview failed, but preserving original file for backend processing");
+      });
   };
 
-  const runDetection = async (scene: SceneMetadata, file?: File) => {
+  const handleDetectClick = () => {
+    console.log("=================================");
+    console.log("[PIPELINE] DETECT BUTTON CLICKED");
+    console.log("[PIPELINE] File:", uploadedFile);
+    console.log("[PIPELINE] File name:", uploadedFile?.name);
+    console.log("[PIPELINE] File type:", uploadedFile?.type);
+    console.log("=================================");
+
+    if (!uploadedFile && !currentScene) {
+      console.error("[PIPELINE] Detect aborted: no uploaded file");
+      alert("No file or scene selected for detection.");
+      return;
+    }
+
+    void executePipeline(uploadedFile || undefined);
+  };
+
+  const executePipeline = async (file?: File) => {
     setIsProcessing(true);
     setPipelineStep(1);
     setOverlayImage(null);
 
     try {
-      const scenePath = file ? undefined : (scene.backendScenePath || scene.id);
-      console.log("[INGEST] Stage 1/4: Sending detection request to backend for:", file ? file.name : scenePath);
-
       // Stage 1: Detect (SAR Segmentation -> Contract 1)
-      const result = file
-        ? await uploadScene(file)
-        : await detectScene(scenePath);
+      let result: DetectionResponse;
+      if (file) {
+        console.log("[PIPELINE] Proceeding with original TIFF upload");
+        console.log("[PIPELINE] Uploading ORIGINAL file to backend");
+        console.log("[PIPELINE] Calling uploadScene():", file.name);
+        result = await uploadScene(file);
+      } else {
+        const scenePath = currentScene.backendScenePath || currentScene.id;
+        console.log("[PIPELINE] Calling detectScene():", scenePath);
+        result = await detectScene(scenePath);
+      }
 
-      console.log("[INGEST] Stage 1 complete. Backend Contract 1:", result);
+      console.log("[PIPELINE] CONTRACT 1 RECEIVED:", result);
       setContract1(result);
       onContract1(result);
       setOverlayImage(result.overlay_image ?? null);
+      console.log("[PIPELINE] Contract 1 stored");
+      console.log("[PIPELINE] Detection stage completed");
 
       // Stage 2: Morph (Morphological Geometry Analysis from Contract 1)
+      console.log("[PIPELINE] Starting MORPH stage");
       setPipelineStep(2);
-      await new Promise((res) => setTimeout(res, 450));
-      console.log("[INGEST] Stage 2 complete. Morphological geometry calculated.");
+      console.log("[PIPELINE] Morph stage completed");
 
       // Stage 3: Drift (Numerical Drift Simulation -> Contract 2 Corridor)
+      console.log("[PIPELINE] Starting DRIFT stage");
+      console.log("[PIPELINE] Sending Contract 1 to getCorridor");
       setPipelineStep(3);
-      let corridorResult: CorridorResponse | null = null;
-      try {
-        console.log("[INGEST] Stage 3/4: Requesting drift corridor from backend...");
-        corridorResult = await getCorridor(result, 'analytic');
-        console.log("[INGEST] Stage 3 complete. Backend Contract 2 (Corridor):", corridorResult);
-        if (onCorridorReady) {
-          onCorridorReady(corridorResult);
-        }
-      } catch (driftErr) {
-        console.warn("[INGEST] Drift calculation warning:", driftErr);
+      const corridorResult = await getCorridor(result, 'analytic');
+      console.log("[PIPELINE] Contract 2 received:", corridorResult);
+      console.log("[PIPELINE] Drift stage completed");
+      if (onCorridorReady) {
+        onCorridorReady(corridorResult);
       }
-      await new Promise((res) => setTimeout(res, 450));
 
       // Stage 4: Match (AIS Candidate Matrix Correlation -> Contract 3)
+      console.log("[PIPELINE] Starting MATCH stage");
       setPipelineStep(4);
-      if (corridorResult) {
-        try {
-          console.log("[INGEST] Stage 4/4: Requesting AIS suspect ranking from backend...");
-          const attributionResult = await rankSuspects(corridorResult, result.orientation_deg);
-          console.log("[INGEST] Stage 4 complete. Backend Contract 3 (Suspects):", attributionResult);
-          if (onTopSuspectReady && attributionResult.suspects && attributionResult.suspects.length > 0) {
-            onTopSuspectReady(attributionResult.suspects[0]);
-          }
-        } catch (matchErr) {
-          console.warn("[INGEST] Attribution ranking warning:", matchErr);
+      const attributionResult = await rankSuspects(corridorResult, result.orientation_deg);
+      console.log("[PIPELINE] Contract 3 received:", attributionResult);
+      if (attributionResult.suspects && attributionResult.suspects.length > 0) {
+        console.log("[PIPELINE] Top suspect:", attributionResult.suspects[0]);
+        if (onTopSuspectReady) {
+          onTopSuspectReady(attributionResult.suspects[0]);
         }
       }
-      await new Promise((res) => setTimeout(res, 450));
+      console.log("[PIPELINE] Match stage completed");
 
       // All 4 stages successfully verified and complete!
       setPipelineStep(5);
-      console.log("[INGEST] Full pipeline execution successfully completed (Stages 1-4).");
+      console.log("[PIPELINE] ALL PIPELINE STAGES COMPLETED");
+      console.log("[NAVIGATION] Pipeline complete");
+      console.log("[NAVIGATION] Navigating to Analysis");
+
+      setTimeout(() => {
+        if (onContinueToAnalysis) {
+          onContinueToAnalysis();
+        } else if (onContinueToMap) {
+          onContinueToMap();
+        }
+      }, 500);
 
     } catch (error) {
-      console.error("[INGEST] Backend detection error:", error);
+      console.error("[PIPELINE] PIPELINE FAILED:", error);
       setContract1(null);
       setOverlayImage(null);
       onContract1(null);
@@ -166,7 +280,7 @@ export const IngestView: React.FC<IngestViewProps> = ({
       alert(
         error instanceof Error
           ? error.message
-          : "Unable to connect to the backend."
+          : "Backend pipeline execution failed."
       );
     } finally {
       setIsProcessing(false);
@@ -265,7 +379,7 @@ export const IngestView: React.FC<IngestViewProps> = ({
                 }
               </div>
               <h3 className="font-semibold text-sm mb-1" style={{ color: 'var(--gov-text-primary)' }}>
-                {customFileName ? customFileName : 'Drop SAR Scene (.SAFE, .tif, .zip)'}
+                {customFileName ? customFileName : 'Drop SAR Scene (.jpg, .tif, .SAFE, .zip)'}
               </h3>
               <p className="text-xs" style={{ color: 'var(--gov-text-muted)' }}>
                 {customFileName
@@ -445,20 +559,20 @@ export const IngestView: React.FC<IngestViewProps> = ({
           <div className="text-xs flex items-center gap-2" style={{ color: 'var(--gov-text-secondary)', fontFamily: 'var(--font-mono)' }}>
             <span
               className="w-2 h-2 rounded-full inline-block"
-              style={{ background: 'var(--gov-green)' }}
+              style={{ background: uploadedFile ? 'var(--gov-green)' : 'var(--gov-navy)' }}
             />
-            Selected Scene:&nbsp;
+            Target Product:&nbsp;
             <span className="font-semibold" style={{ color: 'var(--gov-navy)' }}>
-              {currentScene.name}
+              {uploadedFile ? uploadedFile.name : currentScene.name}
             </span>
-            &nbsp;({currentScene.locationName})
+            {uploadedFile ? ` (${(uploadedFile.size / 1024 / 1024).toFixed(2)} MB)` : ` (${currentScene.locationName})`}
           </div>
 
           <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
             <button
               id="execute-pipeline-btn"
-              onClick={() => runDetection(currentScene)}
-              disabled={isProcessing}
+              onClick={handleDetectClick}
+              disabled={!canDetect}
               className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 background: 'var(--gov-navy)',
@@ -475,14 +589,22 @@ export const IngestView: React.FC<IngestViewProps> = ({
               ) : (
                 <>
                   <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>Execute Full Pipeline</span>
+                  <span>{uploadedFile ? "Detect & Execute Pipeline" : "Execute Full Pipeline"}</span>
                 </>
               )}
             </button>
 
             <button
-              id="continue-to-map-btn"
-              onClick={onContinueToMap}
+              id="continue-to-analysis-btn"
+              onClick={() => {
+                console.log("[NAVIGATION] User clicked Proceed to Coordinate Analysis Map");
+                console.log("[NAVIGATION] Navigating to Analysis");
+                if (onContinueToAnalysis) {
+                  onContinueToAnalysis();
+                } else if (onContinueToMap) {
+                  onContinueToMap();
+                }
+              }}
               className="flex items-center gap-2 px-5 py-2.5 text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer"
               style={{
                 background: 'var(--gov-green)',
@@ -491,7 +613,7 @@ export const IngestView: React.FC<IngestViewProps> = ({
                 borderRadius: '3px'
               }}
             >
-              <span>Proceed to Interactive GIS Map</span>
+              <span>Proceed to Detection Analysis</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>

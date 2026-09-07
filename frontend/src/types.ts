@@ -1,4 +1,5 @@
-export type ActiveTab = 'ingest' | 'map' | 'detection' | 'drift' | 'suspects' | 'export';
+export type ActiveTab = 'ingest' | 'map' | 'analysis' | 'detection' | 'drift' | 'suspects' | 'export';
+
 
 export interface MorphologicalProperties {
   id: string;
@@ -136,6 +137,11 @@ export interface Suspect {
   matched_at: string;
   evidence: string;
   rank: number;
+  lat?: number;
+  lon?: number;
+  latitude?: number;
+  longitude?: number;
+  position?: { lat: number; lon: number };
 }
 
 export interface AttributionResponse {
