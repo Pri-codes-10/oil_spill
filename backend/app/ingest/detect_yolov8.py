@@ -27,7 +27,12 @@ def load_model():
 
 
 def _training_channels(tile: np.ndarray) -> np.ndarray:
-    """Recreate prepare_yolov8_seg.py's normalized 3-channel uint8 input."""
+    """Recreate prepare_yolov8_seg.py's normalized 3-channel uint8 input.
+
+    Channel order is (contrast, VH, VV), NOT (VV, VH, contrast) -- see note
+    below. Verified empirically against model/yolov8_seg/best.pt: the
+    (vv, vh, contrast) ordering silently zeroes out every detection.
+    """
     bands = np.asarray(tile, dtype=np.float32).transpose(2, 0, 1)
     normalized = np.empty_like(bands)
     for index, band in enumerate(bands):
@@ -41,7 +46,17 @@ def _training_channels(tile: np.ndarray) -> np.ndarray:
 
     vv, vh = normalized[0], normalized[1]
     contrast = np.clip(0.5 + 0.5 * (vv - vh), 0, 1)
-    return np.rint(np.stack((vv, vh, contrast), axis=-1) * 255).astype(np.uint8)
+
+    # prepare_yolov8_seg.py writes training tiles as a GeoTIFF with
+    # photometric="RGB" and band order (VV, VH, contrast). The Ultralytics
+    # training dataloader loads those tiles through OpenCV, which returns
+    # BGR-ordered arrays -- so the network actually trained on channel order
+    # (contrast, VH, VV). model.predict(source=<numpy array>) treats an
+    # in-memory HWC array as already BGR-ordered (same convention as
+    # cv2.imread) and does not re-derive it from file metadata, so we must
+    # build the array in that same (contrast, VH, VV) order here, not the
+    # (VV, VH, contrast) order the tiles are written in on disk.
+    return np.rint(np.stack((contrast, vh, vv), axis=-1) * 255).astype(np.uint8)
 
 
 def predict(tile: np.ndarray) -> np.ndarray:

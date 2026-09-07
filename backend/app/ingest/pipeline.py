@@ -159,24 +159,43 @@ def detect_scene(scene_path):
             scene_path.stat().st_mtime,
             tz=timezone.utc,
         )}
-        vv_raw, transform, _crs = reader.open_grd_band(
+        vv_dn, transform, _crs = reader.open_grd_band(
             scene_path,
             max_dimension=INGEST_MAX_DIMENSION,
         )
-        vv_db = reader.to_db_if_needed(vv_raw)
+        # Some real products (e.g. the Zenodo Sentinel-1 oil-spill dataset)
+        # ship pre-calibrated float32 Sigma0 already in dB, not raw uint16
+        # amplitude DN. Calling to_db() unconditionally double-converts those
+        # files -- verified on a real scene: a -31 dB open-water median gets
+        # mapped to +30 dB, which lands far outside SAR_DB_MIN/MAX and looks
+        # nothing like the training distribution. to_db_if_needed() checks
+        # is_db_scale() first and only converts amplitude DN.
+        vv_db = reader.to_db_if_needed(vv_dn)
 
-        # A dual-pol file carries real VH in band 2. Use it — duplicating VV
-        # instead flattens detect_yolov8's VV-VH contrast channel to a constant
-        # 0.5 and throws away the polarisation signal the model trained on.
+        # Real Sentinel-1 GRD tiffs commonly ship VV and VH as bands 1 and 2
+        # of the same file (this is the format model/yolov8_seg was trained
+        # against -- see prepare_yolov8_seg.py). Duplicating VV into the VH
+        # slot flattens the model's VV-minus-VH contrast channel to a
+        # constant, which is the single most informative input band, so we
+        # read the real second band when the file provides one and only
+        # fall back to duplicating VV for genuinely single-band rasters.
         if reader.band_count(scene_path) >= 2:
-            vh_raw, _, _ = reader.open_grd_band(
+            # Same file, same max_dimension -> open_grd_band's internal
+            # scale/out_shape computation is deterministic, so this always
+            # comes back the same shape as vv_dn; no resize needed.
+            vh_dn, _, _ = reader.open_grd_band(
                 scene_path,
                 max_dimension=INGEST_MAX_DIMENSION,
                 band=2,
             )
-            vh_db = reader.to_db_if_needed(vh_raw)
+            vh_db = reader.to_db_if_needed(vh_dn)
         else:
-            vh_db = vv_db                      # single-pol product fallback
+            logger.warning(
+                "%s has a single band; duplicating VV into the VH slot -- "
+                "the model's VV-VH contrast channel will carry no signal",
+                scene_path,
+            )
+            vh_db = vv_db
 
         img = np.stack([vv_db, vh_db], axis=-1)
     else:
@@ -294,4 +313,3 @@ def detect_scene_for_frontend(scene_path):
     result = detect_scene(scene_path)
 
     return result
-
