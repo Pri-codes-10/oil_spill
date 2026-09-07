@@ -68,6 +68,8 @@ export const MarineTrafficMap: React.FC<MarineTrafficMapProps> = ({
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
       const data = await res.json();
+      console.log("AIS / MARINETRAFFIC VESSELS RAW RESPONSE", data);
+      console.log("raw vessels:", data?.vessels);
       if (data.success) {
         setVessels(data.vessels || []);
         setApiSource(data.source);

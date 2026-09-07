@@ -142,7 +142,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                 style={{ background: 'var(--gov-surface-alt)', border: '1px solid var(--gov-border)' }}
               >
                 <span className="font-bold mt-0.5" style={{ color: 'var(--gov-navy)' }}>Layer Toggles:</span>
-                <span>Switch between SAR Backscatter, Predicted Mask opacity, ocean currents, and AIS tracks using the GIS Layer Stack panel.</span>
+                <span>Switch between Predicted Mask opacity, ocean currents, and AIS tracks using the GIS Layer Stack panel.</span>
               </li>
               <li
                 className="flex items-start gap-2 p-2 rounded"

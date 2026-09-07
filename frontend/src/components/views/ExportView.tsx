@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { MorphologicalProperties, SceneMetadata, Suspect } from '../../types';
-import { DetectionResponse } from '../../api/api';
+import { DetectionResponse, createDetectionFromContract1 } from '../../api/api';
 import {
   FileText,
   Download,
@@ -21,10 +21,11 @@ import {
 
 interface ExportViewProps {
   currentScene: SceneMetadata;
-  detection: MorphologicalProperties;
+  detection: MorphologicalProperties | null;
   topSuspect: Suspect | null;
   contract1: DetectionResponse | null;
   onOpenReportPreview: () => void;
+  onGoToIngest?: () => void;
 }
 
 export const ExportView: React.FC<ExportViewProps> = ({
@@ -32,10 +33,50 @@ export const ExportView: React.FC<ExportViewProps> = ({
   detection,
   topSuspect,
   contract1,
-  onOpenReportPreview
+  onOpenReportPreview,
+  onGoToIngest
 }) => {
   const [copiedRef, setCopiedRef] = useState<boolean>(false);
   const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
+
+  const effectiveDetection: MorphologicalProperties | null = detection || (contract1 ? createDetectionFromContract1(contract1, currentScene) : null);
+
+  if (!effectiveDetection) {
+    return (
+      <div
+        className="flex-1 flex flex-col items-center justify-center p-8 text-center"
+        style={{ background: 'var(--gov-bg)', minHeight: 'calc(100vh - 72px)' }}
+      >
+        <div
+          className="gov-card max-w-md p-8 flex flex-col items-center shadow-lg"
+          style={{ borderTop: '4px solid var(--gov-gold)' }}
+        >
+          <div
+            className="w-16 h-16 rounded-full flex items-center justify-center mb-4"
+            style={{ background: '#fef3c7', color: 'var(--gov-gold)' }}
+          >
+            <ShieldCheck className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--gov-navy)' }}>
+            No Detection Loaded
+          </h2>
+          <p className="text-sm mb-6" style={{ color: 'var(--gov-text-secondary)' }}>
+            No verified detection data is available for export. Please select and ingest a scene from the Ingestion pipeline to generate real detector intelligence before exporting evidence packages.
+          </p>
+          {onGoToIngest && (
+            <button
+              onClick={onGoToIngest}
+              className="gov-button-primary px-6 py-2.5 text-sm font-semibold flex items-center gap-2 cursor-pointer"
+            >
+              Go to Ingestion Pipeline
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const activeDet = effectiveDetection;
 
   const incidentRefId = 'OPS-2023-1024-XRAY';
 
@@ -50,14 +91,14 @@ export const ExportView: React.FC<ExportViewProps> = ({
       {
         type: "Feature",
         properties: {
-          id: detection.id || "DET-001", title: detection.title,
-          classification: detection.classification, slick_type: detection.slickType,
-          confidence: detection.confidence, status: detection.status,
-          area_km2: detection.areaKm2, perimeter_km: detection.perimeterKm,
-          major_axis_km: detection.majorAxisKm, minor_axis_km: detection.minorAxisKm,
-          bearing_deg: detection.bearingDeg, estimated_volume_m3: detection.estimatedVolumeM3,
-          estimated_volume_bbl: detection.estimatedVolumeBbl, mean_thickness_um: detection.thicknessUm,
-          contrast_ratio_db: detection.contrastRatioDb, marangoni_damping: detection.dampingRatio,
+          id: activeDet.id || "DET-001", title: activeDet.title,
+          classification: activeDet.classification, slick_type: activeDet.slickType,
+          confidence: activeDet.confidence, status: activeDet.status,
+          area_km2: activeDet.areaKm2, perimeter_km: activeDet.perimeterKm,
+          major_axis_km: activeDet.majorAxisKm, minor_axis_km: activeDet.minorAxisKm,
+          bearing_deg: activeDet.bearingDeg, estimated_volume_m3: activeDet.estimatedVolumeM3,
+          estimated_volume_bbl: activeDet.estimatedVolumeBbl, mean_thickness_um: activeDet.thicknessUm,
+          contrast_ratio_db: activeDet.contrastRatioDb, marangoni_damping: activeDet.dampingRatio,
           sensor: currentScene.satellite, acquisition_utc: currentScene.acquisition
         },
         geometry: contract1 ? {
@@ -99,13 +140,13 @@ export const ExportView: React.FC<ExportViewProps> = ({
       ["Sensor", currentScene.satellite, currentScene.mode],
       ["Acquisition Time", currentScene.acquisition, "UTC timestamp"],
       ["Coordinates", currentScene.coordinates, "WGS84"],
-      ["Target Detection ID", detection.id, detection.title],
-      ["Detected Slick Area", `${detection.areaKm2} km2`, "SAR backscatter dampening"],
-      ["Estimated Volume (m3)", `${detection.estimatedVolumeM3} m3`, `${detection.estimatedVolumeBbl} bbl`],
-      ["Mean Layer Thickness", `${detection.thicknessUm} µm`, "Marangoni wave damping index"],
-      ["SAR Contrast Ratio", `${detection.contrastRatioDb} dB`, `Backscatter min: ${detection.backscatterMinDb} dB`],
-      ["Classification", detection.classification, `${detection.confidence}% confidence (${detection.status})`],
-      ["Estimated Age", detection.estimatedAge, "Hindcast derived"],
+      ["Target Detection ID", activeDet.id, activeDet.title],
+      ["Detected Slick Area", `${activeDet.areaKm2} km2`, "SAR backscatter dampening"],
+      ["Estimated Volume (m3)", `${activeDet.estimatedVolumeM3} m3`, `${activeDet.estimatedVolumeBbl} bbl`],
+      ["Mean Layer Thickness", `${activeDet.thicknessUm} µm`, "Marangoni wave damping index"],
+      ["SAR Contrast Ratio", `${activeDet.contrastRatioDb} dB`, `Backscatter min: ${activeDet.backscatterMinDb} dB`],
+      ["Classification", activeDet.classification, `${activeDet.confidence}% confidence (${activeDet.status})`],
+      ["Estimated Age", activeDet.estimatedAge, "Hindcast derived"],
       ...(topSuspect ? [
         ["Primary Suspect", topSuspect.name, `MMSI: ${topSuspect.mmsi}`],
         ["Attribution Score", `${Math.round(topSuspect.score * 100)}%`, topSuspect.evidence],
@@ -339,10 +380,10 @@ export const ExportView: React.FC<ExportViewProps> = ({
           </div>
 
           {/* Table rows */}
-          <div className="divide-y" style={{ divideColor: 'var(--gov-border)' }}>
+          <div className="divide-y" style={{ borderColor: 'var(--gov-border)' }}>
             {[
               { label: 'Scene Reference', value: `${currentScene.name} (${currentScene.satellite})`, highlight: false },
-              { label: 'Target Anomaly', value: `${detection.id}: ${detection.title} · ${detection.areaKm2} km² (${detection.estimatedVolumeM3} m³ est. volume, ${detection.confidence}% Confidence)`, highlight: true },
+              { label: 'Target Anomaly', value: `${activeDet.id}: ${activeDet.title} · ${activeDet.areaKm2} km² (${activeDet.estimatedVolumeM3} m³ est. volume, ${activeDet.confidence}% Confidence)`, highlight: true },
               { label: 'Hindcast Drift Window', value: '14:00–18:00 UTC (T-14h to T-10h)', color: 'var(--gov-navy)', highlight: false },
               topSuspect
                 ? { label: 'Attributed Vessel', value: `${topSuspect.name} (MMSI ${topSuspect.mmsi}, Rank #${topSuspect.rank})`, color: 'var(--gov-saffron-dim)', highlight: true }

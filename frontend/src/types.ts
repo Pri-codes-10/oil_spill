@@ -4,31 +4,35 @@ export interface MorphologicalProperties {
   id: string;
   title: string;
   areaKm2: number;
-  perimeterKm: number;
+  perimeterKm?: number | string;
   majorAxisKm: number;
   minorAxisKm: number;
   bearingDeg: number;
   centroid: string;
   confidence: number;
-  estimatedAge: string;
-  classification: string;
-  classificationDescription: string;
-  gsd: string;
-  slickType: 'Heavy Crude' | 'Heavy Fuel Oil (HFO)' | 'Diesel / Light Sheen' | 'Biogenic Look-Alike' | 'Wind Shadow / Low Wind';
-  status: 'CONFIRMED' | 'SUSPECT' | 'LOOK_ALIKE' | 'FALSE_POSITIVE';
-  contrastRatioDb: number;
-  dampingRatio: number;
-  edgeGradient: number;
-  thicknessUm: number;
-  estimatedVolumeM3: number;
-  estimatedVolumeBbl: number;
-  backscatterMinDb: number;
-  backscatterMeanDb: number;
-  oceanBackgroundDb: number;
+  estimatedAge?: string;
+  classification?: string;
+  classificationDescription?: string;
+  gsd?: string;
+  slickType?: string;
+  status?: string;
+  contrastRatioDb?: number | string;
+  dampingRatio?: number | string;
+  edgeGradient?: number | string;
+  thicknessUm?: number | string;
+  estimatedVolumeM3?: number | string;
+  estimatedVolumeBbl?: number | string;
+  backscatterMinDb?: number | string;
+  backscatterMeanDb?: number | string;
+  oceanBackgroundDb?: number | string;
+  detector?: string;
+  observedAt?: string;
+  crs?: string;
 }
 
 export interface SceneMetadata {
   id: string;
+  backendScenePath?: string;
   name: string;
   satellite: string;
   acquisition: string;
@@ -46,6 +50,7 @@ export interface SceneMetadata {
 }
 
 export interface GisLayers {
+  marineTraffic?: boolean;
   sarBackscatter: boolean;
   predictedMask: boolean;
   predictedMaskOpacity: number;

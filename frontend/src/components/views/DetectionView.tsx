@@ -1,6 +1,7 @@
-import React, { useMemo, useState, useRef } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { MorphologicalProperties, SceneMetadata } from '../../types';
 import { LatLon, parseCentroidString, projectPoints } from '../../utils/geoProjection';
+import { DetectionResponse, createDetectionFromContract1, API_BASE_URL } from '../../api/api';
 import {
   ShieldCheck,
   X,
@@ -17,19 +18,52 @@ import {
 
 interface DetectionViewProps {
   currentScene: SceneMetadata;
-  detection: MorphologicalProperties;
+  detection: MorphologicalProperties | null;
+  contract1?: DetectionResponse | null;
   onSelectDetection?: (detection: MorphologicalProperties) => void;
   onViewDriftAnalysis: () => void;
   onCloseDrawer?: () => void;
+  onGoToIngest?: () => void;
 }
 
 export const DetectionView: React.FC<DetectionViewProps> = ({
   currentScene,
-  detection,
+  detection: _detection,
+  contract1,
   onSelectDetection,
   onViewDriftAnalysis,
-  onCloseDrawer
+  onCloseDrawer,
+  onGoToIngest
 }) => {
+  if (!contract1) {
+    return (
+      <div className="flex-1 relative w-full h-[calc(100vh-72px)] bg-[#09090b] flex items-center justify-center select-none">
+        <div
+          className="flex flex-col items-center gap-4 p-8 max-w-md text-center"
+          style={{ background: 'var(--gov-surface)', border: '1px solid var(--gov-border)', borderTop: '3px solid var(--gov-navy)', borderRadius: '2px' }}
+        >
+          <Crosshair className="w-8 h-8" style={{ color: 'var(--gov-saffron)' }} />
+          <h2 className="text-sm font-bold" style={{ color: 'var(--gov-navy)' }}>No Detection Loaded</h2>
+          <p className="text-xs" style={{ color: 'var(--gov-text-secondary)' }}>
+            Run scene ingestion first to process this scene through the backend detector and generate slick anomalies.
+          </p>
+          <button
+            onClick={onGoToIngest || onCloseDrawer}
+            className="px-5 py-2.5 text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer"
+            style={{ background: 'var(--gov-green)', color: '#ffffff', border: 'none', borderRadius: '2px' }}
+          >
+            Go to Ingestion
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Derive detection values AUTHORITATIVELY from Contract 1
+  const effectiveDetection: MorphologicalProperties = useMemo(() => {
+    return createDetectionFromContract1(contract1, currentScene);
+  }, [contract1, currentScene]);
+
   const [polarization, setPolarization] = useState<'VV' | 'VH' | 'RATIO'>('VV');
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(true);
   const [zoomLevel, setZoomLevel] = useState<number>(1);
@@ -39,31 +73,45 @@ export const DetectionView: React.FC<DetectionViewProps> = ({
 
   const [probeData, setProbeData] = useState<{
     lat: string; lon: string;
-    backscatterDb: number; isInsideSlick: boolean; dampingFactor: number;
-  }>({
+    backscatterDb: number | string; isInsideSlick: boolean; dampingFactor: number | string;
+  }>(() => ({
     lat: currentScene.lat.toFixed(4) + '°N',
     lon: Math.abs(currentScene.lon).toFixed(4) + (currentScene.lon >= 0 ? '°E' : '°W'),
-    backscatterDb: detection.backscatterMinDb,
+    backscatterDb: 'N/A',
     isInsideSlick: true,
-    dampingFactor: detection.dampingRatio
-  });
+    dampingFactor: 'N/A'
+  }));
 
-  const [detectionStatus, setDetectionStatus] = useState<string>(detection.status || 'CONFIRMED');
+  const [detectionStatus, setDetectionStatus] = useState<string>(effectiveDetection.status || 'CONFIRMED');
+
+  useEffect(() => {
+    setProbeData({
+      lat: currentScene.lat.toFixed(4) + '°N',
+      lon: Math.abs(currentScene.lon).toFixed(4) + (currentScene.lon >= 0 ? '°E' : '°W'),
+      backscatterDb: 'N/A',
+      isInsideSlick: true,
+      dampingFactor: 'N/A'
+    });
+    setDetectionStatus(effectiveDetection.status || 'CONFIRMED');
+    setZoomLevel(1);
+    setPanPosition({ x: 0, y: 0 });
+  }, [currentScene.id, contract1]);
+
   const viewportRef = useRef<HTMLDivElement>(null);
-  const detectionsList = currentScene.detections || [detection];
 
-  // Anchored on this scene's own detections' real centroids, so each
-  // detection's ellipse lands at its actual position instead of one of
-  // three fixed canvas spots picked by array index.
+  // Backend scene image URL requested directly from backend endpoint — no data.ts URLs
+  const backendSceneUrl = `${API_BASE_URL}/api/ingest/mock?scene=${encodeURIComponent(currentScene.backendScenePath || currentScene.id)}`;
+
+  // Projector anchored strictly on Contract 1 centroid and polygon vertices
   const detectionProjector = useMemo(() => {
-    const points: LatLon[] = detectionsList
-      .map(d => parseCentroidString(d.centroid))
-      .filter((p): p is LatLon => p !== null);
-    if (points.length === 0) {
-      points.push({ lat: currentScene.lat, lon: currentScene.lon });
+    const points: LatLon[] = [{ lat: contract1.centroid[1], lon: contract1.centroid[0] }];
+    if (contract1.polygon?.[0]) {
+      for (const pt of contract1.polygon[0]) {
+        points.push({ lat: pt[1], lon: pt[0] });
+      }
     }
     return projectPoints(points, 1000, 800, 160);
-  }, [detectionsList, currentScene]);
+  }, [contract1]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.target instanceof SVGElement || e.target instanceof HTMLImageElement || (e.target as HTMLElement).id === 'radar-viewport-container') {
@@ -83,16 +131,12 @@ export const DetectionView: React.FC<DetectionViewProps> = ({
       const calcLon = (baseLon + (xPercent - 0.5) * 0.15).toFixed(4);
       const distFromCenter = Math.sqrt(Math.pow(xPercent - 0.44, 2) + Math.pow(yPercent - 0.42, 2));
       const isInside = distFromCenter < 0.12;
-      const backscatter = isInside
-        ? detection.backscatterMinDb + (distFromCenter / 0.12) * (detection.backscatterMeanDb - detection.backscatterMinDb)
-        : detection.oceanBackgroundDb + (Math.sin(xPercent * 50) * 0.6);
-      const damping = isInside ? detection.dampingRatio : 1.0;
       setProbeData({
         lat: `${Math.abs(parseFloat(calcLat))}°${parseFloat(calcLat) >= 0 ? 'N' : 'S'}`,
         lon: `${Math.abs(parseFloat(calcLon))}°${parseFloat(calcLon) >= 0 ? 'E' : 'W'}`,
-        backscatterDb: Number(backscatter.toFixed(1)),
+        backscatterDb: 'N/A (Server Processed)',
         isInsideSlick: isInside,
-        dampingFactor: Number(damping.toFixed(2))
+        dampingFactor: 'N/A'
       });
     }
   };
@@ -135,15 +179,25 @@ export const DetectionView: React.FC<DetectionViewProps> = ({
           className="absolute inset-0 w-full h-full transition-transform duration-75 origin-center"
           style={{ transform: `translate(${panPosition.x}px, ${panPosition.y}px) scale(${zoomLevel})` }}
         >
+          {/* Backend detection/satellite image requested directly from backend endpoint — no data.ts URLs */}
           <div
-            className={`absolute inset-0 bg-cover bg-center transition-all duration-300 ${
+            className={`absolute inset-0 w-full h-full bg-cover bg-center transition-all duration-300 ${
               polarization === 'VV'
-                ? 'grayscale contrast-125 brightness-95 opacity-70 mix-blend-luminosity'
+                ? 'grayscale contrast-125 brightness-90'
                 : polarization === 'VH'
                   ? 'grayscale contrast-150 brightness-110 opacity-80 mix-blend-screen'
                   : 'sepia contrast-150 brightness-105 opacity-85 mix-blend-screen'
             }`}
-            style={{ backgroundImage: `url(${currentScene.detectionImageUrl || currentScene.mapImageUrl})` }}
+            style={{
+              backgroundImage: `url(${backendSceneUrl})`,
+              backgroundColor: '#050508'
+            }}
+          />
+          <img
+            src={backendSceneUrl}
+            alt="Backend Scene Ingestion"
+            className="hidden"
+            aria-hidden="true"
           />
           <div
             className="absolute inset-0 w-full h-full pointer-events-none opacity-20"
@@ -175,41 +229,51 @@ export const DetectionView: React.FC<DetectionViewProps> = ({
               <line x1="440" y1="40" x2="440" y2="640" strokeDasharray="4 4" />
               <line x1="140" y1="340" x2="740" y2="340" strokeDasharray="4 4" />
             </g>
-            {detectionsList.map((anom) => {
-              const isSelected = anom.id === detection.id;
-              const parsedCentroid = parseCentroidString(anom.centroid);
-              const { x: cx, y: cy } = parsedCentroid
-                ? detectionProjector(parsedCentroid)
-                : { x: 440, y: 340 };
-              const rx = Math.max(anom.majorAxisKm * 10, 35);
-              const ry = Math.max(anom.minorAxisKm * 14, 18);
-              const rot = anom.bearingDeg;
-              const isLookAlike = anom.status === 'LOOK_ALIKE' || anom.confidence < 50;
+            {/* Real detected slick polygon from Contract 1 */}
+            {contract1.polygon?.[0] && (() => {
+              const polyPts = contract1.polygon[0].map(pt => detectionProjector({ lat: pt[1], lon: pt[0] }));
+              if (polyPts.length < 3) return null;
+              const polyPathD = polyPts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ') + ' Z';
               return (
-                <g key={anom.id} onClick={() => handleSelectAnom(anom)} className="cursor-pointer group">
+                <path
+                  d={polyPathD}
+                  fill="url(#slick-primary-fill)"
+                  stroke={effectiveDetection.confidence >= 70 ? "#60a5fa" : "#f59e0b"}
+                  strokeWidth="2.5"
+                  filter="url(#radar-glow)"
+                />
+              );
+            })()}
+
+            {/* Principal axes ellipse derived strictly from Contract 1 */}
+            {(() => {
+              const { x: cx, y: cy } = detectionProjector({ lat: contract1.centroid[1], lon: contract1.centroid[0] });
+              const rx = Math.max(contract1.major_axis_km * 12, 35);
+              const ry = Math.max(contract1.minor_axis_km * 16, 18);
+              const rot = contract1.orientation_deg;
+              const isConfirmed = contract1.confidence >= 0.7;
+              return (
+                <g className="cursor-pointer group">
                   <ellipse
                     cx={cx} cy={cy} rx={rx} ry={ry}
                     transform={`rotate(${rot - 90} ${cx} ${cy})`}
-                    fill={isLookAlike ? "url(#slick-lookalike-fill)" : "url(#slick-primary-fill)"}
-                    stroke={isSelected ? (isLookAlike ? "#f59e0b" : "#60a5fa") : "#3f3f46"}
-                    strokeWidth={isSelected ? "2.5" : "1.5"}
-                    strokeDasharray={isLookAlike ? "4 4" : "none"}
-                    filter={isSelected ? "url(#radar-glow)" : "none"}
+                    fill="none"
+                    stroke={isConfirmed ? "#60a5fa" : "#f59e0b"}
+                    strokeWidth="2"
+                    strokeDasharray="4 4"
                   />
-                  {isSelected && (
-                    <line
-                      x1={cx - Math.cos((rot * Math.PI) / 180) * (rx * 1.2)}
-                      y1={cy - Math.sin((rot * Math.PI) / 180) * (rx * 1.2)}
-                      x2={cx + Math.cos((rot * Math.PI) / 180) * (rx * 1.2)}
-                      y2={cy + Math.sin((rot * Math.PI) / 180) * (rx * 1.2)}
-                      stroke="#60a5fa" strokeWidth="1.5" strokeDasharray="3 3"
-                    />
-                  )}
-                  <circle cx={cx} cy={cy} r="3" fill={isLookAlike ? "#f59e0b" : "#3b82f6"} />
-                  <circle cx={cx} cy={cy} r="12" fill="none" stroke={isLookAlike ? "#f59e0b" : "#3b82f6"} strokeWidth="1" opacity="0.6" />
+                  <line
+                    x1={cx - Math.cos((rot * Math.PI) / 180) * (rx * 1.2)}
+                    y1={cy - Math.sin((rot * Math.PI) / 180) * (rx * 1.2)}
+                    x2={cx + Math.cos((rot * Math.PI) / 180) * (rx * 1.2)}
+                    y2={cy + Math.sin((rot * Math.PI) / 180) * (rx * 1.2)}
+                    stroke="#60a5fa" strokeWidth="1.5" strokeDasharray="3 3"
+                  />
+                  <circle cx={cx} cy={cy} r="4" fill={isConfirmed ? "#3b82f6" : "#f59e0b"} />
+                  <circle cx={cx} cy={cy} r="14" fill="none" stroke={isConfirmed ? "#3b82f6" : "#f59e0b"} strokeWidth="1" opacity="0.6" />
                 </g>
               );
-            })}
+            })()}
           </svg>
         </div>
 
@@ -260,17 +324,17 @@ export const DetectionView: React.FC<DetectionViewProps> = ({
             </div>
             <div>
               <div className="flex items-center justify-between gap-3">
-                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--gov-text-muted)' }}>SAR Backscatter (σ₀)</span>
-                <span className={`text-[10px] font-mono font-bold`} style={{ color: probeData.isInsideSlick ? 'var(--gov-saffron-dim)' : 'var(--gov-green)' }}>
-                  {probeData.isInsideSlick ? 'ANOMALY DAMPENING' : 'BACKGROUND SEA'}
+                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--gov-text-muted)' }}>Backend Detector</span>
+                <span className="text-[10px] font-mono font-bold" style={{ color: 'var(--gov-green)' }}>
+                  {contract1.detector.toUpperCase()}
                 </span>
               </div>
               <div className="flex items-baseline gap-2 mt-0.5">
                 <span className="font-mono text-base font-bold" style={{ color: 'var(--gov-text-primary)' }}>
-                  {probeData.backscatterDb} <span className="text-xs font-normal" style={{ color: 'var(--gov-text-muted)' }}>dB</span>
+                  {contract1.area_km2} <span className="text-xs font-normal" style={{ color: 'var(--gov-text-muted)' }}>km² detected</span>
                 </span>
                 <span className="text-[11px] font-mono" style={{ color: 'var(--gov-text-secondary)' }}>
-                  Damping: <strong style={{ color: 'var(--gov-navy)' }}>{probeData.dampingFactor}x</strong>
+                  Confidence: <strong style={{ color: 'var(--gov-navy)' }}>{Math.round(contract1.confidence * 100)}%</strong>
                 </span>
               </div>
             </div>
@@ -309,9 +373,9 @@ export const DetectionView: React.FC<DetectionViewProps> = ({
                 />
                 <div>
                   <h2 className="text-sm font-bold tracking-tight" style={{ color: 'var(--gov-navy)' }}>
-                    {detection.id}: {detection.title}
+                    {effectiveDetection.id}: {effectiveDetection.title}
                   </h2>
-                  <span className="text-[11px] font-mono" style={{ color: 'var(--gov-text-muted)' }}>{detection.centroid}</span>
+                  <span className="text-[11px] font-mono" style={{ color: 'var(--gov-text-muted)' }}>{effectiveDetection.centroid}</span>
                 </div>
               </div>
               <button
@@ -324,12 +388,12 @@ export const DetectionView: React.FC<DetectionViewProps> = ({
             </div>
 
             <div className="flex flex-wrap items-center gap-2 mt-2">
-              <span className={`tag ${detection.confidence >= 80 ? 'tag-active' : 'tag-amber'}`}>
+              <span className={`tag ${effectiveDetection.confidence >= 80 ? 'tag-active' : 'tag-amber'}`}>
                 <ShieldCheck className="w-3.5 h-3.5" />
-                {detection.confidence}% Detection Confidence
+                {effectiveDetection.confidence}% Detection Confidence
               </span>
               <span className="tag">{currentScene.satellite}</span>
-              <span className="tag font-mono text-[10px]">{detection.slickType}</span>
+              <span className="tag font-mono text-[10px]">{effectiveDetection.slickType || 'N/A (Unclassified)'}</span>
             </div>
           </div>
 
@@ -343,12 +407,12 @@ export const DetectionView: React.FC<DetectionViewProps> = ({
                 <span className="text-[10px] font-mono normal-case" style={{ color: 'var(--gov-text-muted)' }}>CALC: WGS84</span>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <StatCard label="Surface Area" value={detection.areaKm2} unit="km²" />
-                <StatCard label="Perimeter" value={detection.perimeterKm} unit="km" />
-                <StatCard label="Major Axis (Length)" value={detection.majorAxisKm} unit="km" />
-                <StatCard label="Minor Axis (Width)" value={detection.minorAxisKm} unit="km" />
-                <StatCard label="Orientation Angle" value={`${detection.bearingDeg}° T`} />
-                <StatCard label="Aspect Ratio (L/W)" value={`${(detection.majorAxisKm / Math.max(detection.minorAxisKm, 0.1)).toFixed(2)} : 1`} />
+                <StatCard label="Surface Area" value={contract1.area_km2} unit="km²" />
+                <StatCard label="Perimeter" value={effectiveDetection.perimeterKm || 'N/A'} unit={effectiveDetection.perimeterKm ? 'km' : undefined} />
+                <StatCard label="Major Axis (Length)" value={contract1.major_axis_km} unit="km" />
+                <StatCard label="Minor Axis (Width)" value={contract1.minor_axis_km} unit="km" />
+                <StatCard label="Orientation Angle" value={`${Math.round(contract1.orientation_deg)}° T`} />
+                <StatCard label="Aspect Ratio (L/W)" value={`${(contract1.major_axis_km / Math.max(contract1.minor_axis_km, 0.01)).toFixed(2)} : 1`} />
               </div>
             </section>
 
@@ -371,10 +435,10 @@ export const DetectionView: React.FC<DetectionViewProps> = ({
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--gov-navy)' }}>{detection.classification}</span>
-                    <span className="font-mono text-[11px] font-semibold" style={{ color: 'var(--gov-green)' }}>{detection.confidence}% Match</span>
+                    <span className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--gov-navy)' }}>{effectiveDetection.classification}</span>
+                    <span className="font-mono text-[11px] font-semibold" style={{ color: 'var(--gov-green)' }}>{effectiveDetection.confidence}% Match</span>
                   </div>
-                  <p className="text-xs leading-relaxed" style={{ color: 'var(--gov-text-secondary)' }}>{detection.classificationDescription}</p>
+                  <p className="text-xs leading-relaxed" style={{ color: 'var(--gov-text-secondary)' }}>{effectiveDetection.classificationDescription}</p>
                 </div>
               </div>
             </div>
@@ -393,10 +457,10 @@ export const DetectionView: React.FC<DetectionViewProps> = ({
                 </div>
                 <div>
                   <span className="text-[10px] font-semibold uppercase tracking-wider block" style={{ color: 'var(--gov-text-muted)' }}>Estimated Age</span>
-                  <span className="font-mono text-xs font-semibold" style={{ color: 'var(--gov-text-saffron)' }}>{detection.estimatedAge}</span>
+                  <span className="font-mono text-xs font-semibold" style={{ color: 'var(--gov-text-saffron)' }}>{effectiveDetection.estimatedAge || 'N/A (Hindcast required)'}</span>
                 </div>
               </div>
-              <span className="tag tag-amber text-[10px]">Hindcast Verified</span>
+              <span className="tag tag-amber text-[10px]">{effectiveDetection.estimatedAge ? 'Hindcast Verified' : 'Hindcast Required'}</span>
             </div>
 
           </div>
@@ -417,7 +481,7 @@ export const DetectionView: React.FC<DetectionViewProps> = ({
                 borderRadius: '3px'
               }}
             >
-              <span>Proceed to Numerical Drift Modelling ({detection.id})</span>
+              <span>Proceed to Numerical Drift Modelling ({effectiveDetection.id})</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
