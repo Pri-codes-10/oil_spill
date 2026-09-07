@@ -4,6 +4,7 @@ import { APP_LOGO } from '../data';
 import {
   Upload,
   Globe,
+  Map,
   Radar,
   Activity,
   Ship,
@@ -24,7 +25,8 @@ export const SideNavBar: React.FC<SideNavBarProps> = ({
 }) => {
   const navItems: { id: ActiveTab; label: string; icon: React.ReactNode }[] = [
     { id: 'ingest', label: 'Ingest', icon: <Upload className="w-6 h-6" /> },
-    { id: 'map', label: 'Map', icon: <Globe className="w-6 h-6" /> },
+    { id: 'map', label: 'AIS Map', icon: <Globe className="w-6 h-6" /> },
+    { id: 'analysis', label: 'Analysis', icon: <Map className="w-6 h-6" /> },
     { id: 'detection', label: 'Detection', icon: <Radar className="w-6 h-6" /> },
     { id: 'drift', label: 'Drift', icon: <Activity className="w-6 h-6" /> },
     { id: 'suspects', label: 'Suspects', icon: <Ship className="w-6 h-6" /> },

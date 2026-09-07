@@ -1,6 +1,6 @@
 import { AttributionResponse, CorridorResponse, MorphologicalProperties } from "../types";
 
-export const API_BASE_URL = "http://127.0.0.1:8000";
+export const API_BASE_URL = "";
 
 export interface DetectionResponse {
   observed_at: string;
@@ -132,20 +132,32 @@ export async function detectScene(
 }
 
 export async function uploadScene(file: File): Promise<DetectionResponse> {
+  console.log("[API] uploadScene() START");
+  console.log("[API] File:", file.name);
+  console.log("[API] Type:", file.type);
+  console.log("[API] Size:", file.size);
+  console.log("[API] Building FormData");
+
   const formData = new FormData();
   formData.append("file", file);
 
+  console.log("[API] Sending multipart request");
   const response = await fetch(`${API_BASE_URL}/api/ingest/upload`, {
     method: "POST",
     body: formData,
   });
 
+  console.log("[API] Response status:", response.status);
+  console.log("[API] Response OK:", response.ok);
+
   if (!response.ok) {
     const errorText = await response.text();
+    console.error("[API] Upload failed:", errorText);
     throw new Error(errorText || `Backend error: ${response.status}`);
   }
 
   const data = await response.json();
+  console.log("[API] Raw detection response:", data);
   logContract1(data);
   return data;
 }

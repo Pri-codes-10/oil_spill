@@ -48,6 +48,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
       case 'ingest':
         return { stage: 'Stage 1/4: Data Ingestion', nextTab: 'map' as ActiveTab };
       case 'map':
+      case 'analysis':
       case 'detection':
         return { stage: 'Stage 2/4: Detection Analysis', nextTab: 'drift' as ActiveTab };
       case 'drift':
