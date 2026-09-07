@@ -20,7 +20,38 @@ from rasterio.enums import Resampling
 from rasterio.transform import Affine, from_gcps
 
 
-def open_grd_band(tiff_path, max_dimension=None):
+def band_count(tiff_path):
+    """Number of raster bands in a product (2 for a dual-pol VV+VH file)."""
+    with rasterio.open(tiff_path) as src:
+        return src.count
+
+
+def is_db_scale(arr):
+    """True if `arr` already holds calibrated dB rather than amplitude DN.
+
+    Amplitude DN is a magnitude, so it can never be negative; calibrated
+    Sigma0 over water sits well below 0 dB. A negative median therefore tells
+    the two apart, which is what stops to_db() from running a second time on
+    products that ship pre-calibrated.
+
+    ⚠️ This matters for real published datasets, not just theory: the Zenodo
+    Sentinel-1 oil-spill dataset is float32 Sigma0 already in dB, whereas a
+    raw GRD measurement band is uint16 amplitude. Converting the former again
+    maps a valid -34 dB pixel to +31 dB — far outside config's SAR_DB_MIN/MAX
+    — and the detector then sees a distribution nothing like its training set.
+    """
+    finite = arr[np.isfinite(arr)]
+    if finite.size == 0:
+        return False
+    return bool(np.median(finite) < 0)
+
+
+def to_db_if_needed(arr):
+    """Convert amplitude DN to dB, or pass through data already in dB."""
+    return arr if is_db_scale(arr) else to_db(arr)
+
+
+def open_grd_band(tiff_path, max_dimension=None, band=1):
     """Open one GRD measurement band; return array, affine transform and CRS."""
     with rasterio.open(tiff_path) as src:
         scale = 1.0
@@ -29,12 +60,12 @@ def open_grd_band(tiff_path, max_dimension=None):
             out_height = max(1, round(src.height * scale))
             out_width = max(1, round(src.width * scale))
             arr = src.read(
-                1,
+                band,
                 out_shape=(out_height, out_width),
                 resampling=Resampling.average,
             ).astype("float32")
         else:
-            arr = src.read(1).astype("float32")
+            arr = src.read(band).astype("float32")
 
         gcps, gcp_crs = src.gcps
         if gcps:

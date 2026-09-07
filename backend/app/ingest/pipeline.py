@@ -159,12 +159,26 @@ def detect_scene(scene_path):
             scene_path.stat().st_mtime,
             tz=timezone.utc,
         )}
-        vv_dn, transform, _crs = reader.open_grd_band(
+        vv_raw, transform, _crs = reader.open_grd_band(
             scene_path,
             max_dimension=INGEST_MAX_DIMENSION,
         )
-        vv_db = reader.to_db(vv_dn)
-        img = np.stack([vv_db, vv_db], axis=-1)
+        vv_db = reader.to_db_if_needed(vv_raw)
+
+        # A dual-pol file carries real VH in band 2. Use it — duplicating VV
+        # instead flattens detect_yolov8's VV-VH contrast channel to a constant
+        # 0.5 and throws away the polarisation signal the model trained on.
+        if reader.band_count(scene_path) >= 2:
+            vh_raw, _, _ = reader.open_grd_band(
+                scene_path,
+                max_dimension=INGEST_MAX_DIMENSION,
+                band=2,
+            )
+            vh_db = reader.to_db_if_needed(vh_raw)
+        else:
+            vh_db = vv_db                      # single-pol product fallback
+
+        img = np.stack([vv_db, vh_db], axis=-1)
     else:
         meta = safe.parse_safe_name(scene_path)
         vv_path = _find_measurement_tiff(scene_path, "vv")
