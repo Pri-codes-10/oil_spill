@@ -59,10 +59,9 @@ def predict(tile: np.ndarray) -> np.ndarray:
         return np.zeros(tile.shape[:2], dtype=np.float32)
 
     masks = result.masks.data.cpu().numpy().astype(np.float32)
-    confidences = result.boxes.conf.cpu().numpy().astype(np.float32)
     combined = np.zeros(masks.shape[1:], dtype=np.float32)
-    for mask, confidence in zip(masks, confidences):
-        combined = np.maximum(combined, mask * confidence)
+    for mask in masks:
+        combined = np.maximum(combined, mask)
 
     if combined.shape != tile.shape[:2]:
         combined = resize(

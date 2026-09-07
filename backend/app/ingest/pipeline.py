@@ -145,6 +145,15 @@ def detect_scene(scene_path):
         meta = {"start_time": utc(datetime.now(timezone.utc))}
         img = synthetic_scene(**blob_params)
         transform = _synthetic_transform(img.shape[0], img.shape[1], lon0=preset["lon0"], lat0=preset["lat0"])
+    elif scene_path.suffix.lower() in {".jpg", ".jpeg"}:
+        meta = {"start_time": datetime.fromtimestamp(
+            scene_path.stat().st_mtime,
+            tz=timezone.utc,
+        )}
+        with Image.open(scene_path) as source:
+            grayscale = np.asarray(source.convert("L"), dtype="float32")
+        img = np.stack([grayscale, grayscale], axis=-1)
+        transform = _synthetic_transform(img.shape[0], img.shape[1])
     elif scene_path.suffix.lower() in {".tif", ".tiff"}:
         meta = {"start_time": datetime.fromtimestamp(
             scene_path.stat().st_mtime,

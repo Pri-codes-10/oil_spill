@@ -199,7 +199,7 @@ export const IngestView: React.FC<IngestViewProps> = ({
           >
             <input
               type="file"
-              accept=".zip,.SAFE,.tif,.tiff,.geojson"
+              accept=".jpg,.jpeg,.zip,.SAFE,.tif,.tiff,.geojson"
               onChange={handleFileUpload}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
             />
@@ -242,7 +242,7 @@ export const IngestView: React.FC<IngestViewProps> = ({
               className="flex items-center justify-between pt-3 text-xs"
               style={{ borderTop: '1px solid var(--gov-border)', color: 'var(--gov-text-muted)' }}
             >
-              <span className="font-mono">Accepted: .SAFE, .tif, .zip, .geojson</span>
+              <span className="font-mono">Accepted: .jpg, .jpeg, .SAFE, .tif, .zip, .geojson</span>
               <span className="font-mono">Max: 4.2 GB</span>
             </div>
           </div>

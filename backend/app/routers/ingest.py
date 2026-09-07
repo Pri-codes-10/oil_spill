@@ -50,8 +50,8 @@ def upload(file: UploadFile = File(...)):
     """Accept a frontend file upload and run the B1 detector on it."""
     filename = Path(file.filename or "upload.bin").name
     suffix = Path(filename).suffix.lower()
-    if suffix not in {".tif", ".tiff", ".zip", ".safe"}:
-        raise HTTPException(415, "supported uploads are .tif, .tiff, .zip, or .SAFE")
+    if suffix not in {".jpg", ".jpeg", ".tif", ".tiff", ".zip", ".safe"}:
+        raise HTTPException(415, "supported uploads are .jpg, .jpeg, .tif, .tiff, .zip, or .SAFE")
 
     try:
         with tempfile.TemporaryDirectory(prefix="spilltrace-") as temp_dir:

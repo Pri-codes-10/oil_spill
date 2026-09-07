@@ -62,3 +62,4 @@ cache/*
 *.swp
 .DS_Store
 Thumbs.db
+v1_backend/.vscode/ v2_backend/.vscode/ v2_backend/.idea/

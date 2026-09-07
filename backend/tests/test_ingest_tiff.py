@@ -4,6 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import rasterio
+from PIL import Image
 from rasterio.transform import from_origin
 
 from app.ingest import pipeline, reader
@@ -62,3 +63,16 @@ def test_detect_scene_reports_incomplete_safe(tmp_path):
         assert "no VV measurement TIFF" in str(exc)
     else:
         raise AssertionError("an incomplete SAFE product should fail clearly")
+
+
+def test_detect_scene_reads_jpg_image(tmp_path):
+    image = np.full((512, 512), 220, dtype=np.uint8)
+    image[220:300, 100:420] = 20
+    jpg_path = tmp_path / "oil-spill-test.jpg"
+    Image.fromarray(image, mode="L").save(jpg_path, quality=100)
+
+    result = pipeline.detect_scene(jpg_path)
+
+    assert result["area_km2"] > 0
+    assert result["detector"] in {"threshold", "yolov8"}
+    assert result["overlay_image"].startswith("data:image/png;base64,")
