@@ -1,4 +1,4 @@
-# SpillTrace — SIH 2026 PS 143
+# SpillTrace — SIH 2026 PS 2026143
 
 SAR-based oil spill detection → drift hindcasting → AIS vessel attribution.
 
